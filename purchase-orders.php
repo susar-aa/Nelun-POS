@@ -194,10 +194,10 @@ if ($is_api) {
             $sql = "
                 SELECT p.product_id, p.name as product_name, p.product_code, p.cost as cost_price, 
                        SUM(si.quantity) as sold_qty
-                FROM sales_items si
+                FROM sale_items si
                 JOIN sales s ON si.sale_id = s.sale_id
                 JOIN Products p ON si.product_id = p.product_id
-                WHERE p.supplier_id = ? AND DATE(s.created_at) BETWEEN ? AND ?
+                WHERE p.supplier_id = ? AND s.sale_date BETWEEN ? AND ?
                 GROUP BY p.product_id
                 HAVING sold_qty > 0
             ";
@@ -206,7 +206,7 @@ if ($is_api) {
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($results as &$item) {
-                $item['quantity'] = (int)$item['sold_qty'] + $buffer;
+                $item['quantity'] = ceil((int)$item['sold_qty'] * (1 + $buffer / 100));
             }
 
             echo json_encode(["success" => true, "items" => $results]);
@@ -510,7 +510,7 @@ if ($is_api) {
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Buffer Stock to Add (Qty)</label>
+                            <label class="form-label small fw-bold">Buffer Stock to Add (%)</label>
                             <input type="number" id="analyzeBuffer" class="form-control" value="0" min="0">
                         </div>
                     </form>
@@ -570,6 +570,7 @@ if ($is_api) {
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
                     <button class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                    <button class="btn btn-primary rounded-pill px-4" onclick="downloadPOPDF()"><i class="bi bi-printer"></i> Print / Save PDF</button>
                     <button class="btn btn-outline-danger rounded-pill px-4" id="btnCancelPO" onclick="cancelCurrentPO()">Cancel Order</button>
                     <button class="btn btn-success rounded-pill px-4 fw-bold" id="btnTransferGRN" onclick="transferPOToGRN()">
                         <i class="bi bi-box-seam-fill"></i> Receive & Convert to GRN
@@ -1014,8 +1015,8 @@ if ($is_api) {
             setTimeout(() => div.remove(), 3000);
         }
 
-        window.downloadPOPDF = function() {
-            const poId = document.getElementById('inputId').value;
+        window.downloadPOPDF = function(poIdArg = null) {
+            const poId = poIdArg || document.getElementById('inputId').value || selectedPOId;
             if(!poId) {
                 showAlert('Please save the PO first to generate a PDF.', 'warning');
                 return;

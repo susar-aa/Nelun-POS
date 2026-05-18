@@ -106,10 +106,17 @@ if ($is_api) {
         $po_id = !empty($input['po_id']) ? (int)$input['po_id'] : null;
         $supplier_id = (int)($input['supplier_id'] ?? 0);
         $received_date = $input['received_date'] ?? date('Y-m-d');
-        $payment_method = $input['payment_method'] ?? 'Credit';
-        $paid_amount = (float)($input['paid_amount'] ?? 0.00);
+        
+        $pay_cash = (float)($input['pay_cash'] ?? 0.00);
+        $pay_card = (float)($input['pay_card'] ?? 0.00);
+        $pay_cheque = (float)($input['pay_cheque'] ?? 0.00);
+        $pay_transfer = (float)($input['pay_transfer'] ?? 0.00);
+        $paid_amount = $pay_cash + $pay_card + $pay_cheque + $pay_transfer;
+
+        $bank_name = trim($input['bank_name'] ?? '');
         $cheque_number = trim($input['cheque_number'] ?? '');
         $cheque_date = !empty($input['cheque_date']) ? $input['cheque_date'] : null;
+        
         $items = $input['items'] ?? [];
         $user_id = $input['user_id'] ?? 1;
 
@@ -120,6 +127,20 @@ if ($is_api) {
 
         try {
             $pdo->beginTransaction();
+
+            // Fetch Supplier Name
+            $stmtSup = $pdo->prepare("SELECT name FROM suppliers WHERE supplier_id = ?");
+            $stmtSup->execute([$supplier_id]);
+            $supplier_name = $stmtSup->fetchColumn() ?: 'Supplier';
+
+            // Determine primary payment method name for header
+            $methods = [];
+            if ($pay_cash > 0) $methods[] = 'Cash';
+            if ($pay_card > 0) $methods[] = 'Card';
+            if ($pay_cheque > 0) $methods[] = 'Cheque';
+            if ($pay_transfer > 0) $methods[] = 'Transfer';
+            
+            $payment_method = empty($methods) ? 'Credit' : (count($methods) > 1 ? 'Multiple' : $methods[0]);
 
             // 1. Calculate Grand Total of GRN
             $total_amount = 0.00;
@@ -193,25 +214,50 @@ if ($is_api) {
             ");
             $stmtLedger1->execute([$supplier_id, $grn_id, $total_amount, $new_bal, "Received inventory invoice #$grn_number"]);
 
-            // B: Log the Payment if paid_amount > 0 (reduces outstanding liability)
-            if ($paid_amount > 0) {
-                // Insert supplier payment
-                $stmtPay = $pdo->prepare("
-                    INSERT INTO supplier_payments (supplier_id, payment_date, amount, payment_method, cheque_number, cheque_date, cheque_status, notes, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                $cheque_status = ($payment_method === 'Cheque') ? 'Pending' : null;
-                $stmtPay->execute([$supplier_id, $received_date, $paid_amount, $payment_method, $cheque_number, $cheque_date, $cheque_status, "Partial/Full payment at inventory receipt", $user_id]);
-                $payment_id = $pdo->lastInsertId();
+            // Helper queries for inserting payments & updating ledger
+            $stmtPay = $pdo->prepare("
+                INSERT INTO supplier_payments (supplier_id, payment_date, amount, payment_method, cheque_number, cheque_date, cheque_status, bank_details, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtLedger2 = $pdo->prepare("
+                INSERT INTO supplier_ledger (supplier_id, transaction_type, reference_id, debit, credit, balance, notes)
+                VALUES (?, 'Payment', ?, ?, 0.00, ?, ?)
+            ");
 
-                // Log debit entry in ledger
-                $new_bal2 = $new_bal - $paid_amount;
-                $stmtLedger2 = $pdo->prepare("
-                    INSERT INTO supplier_ledger (supplier_id, transaction_type, reference_id, debit, credit, balance, notes)
-                    VALUES (?, 'Payment', ?, ?, 0.00, ?, ?)
+            // B: Log Split Payments
+            if ($pay_cash > 0) {
+                $stmtPay->execute([$supplier_id, $received_date, $pay_cash, 'Cash', null, null, null, null, "Cash payment during intake #$grn_number", $user_id]);
+                $payment_id = $pdo->lastInsertId();
+                $new_bal -= $pay_cash;
+                $stmtLedger2->execute([$supplier_id, $payment_id, $pay_cash, $new_bal, "Cash payment for intake #$grn_number"]);
+            }
+
+            if ($pay_card > 0) {
+                $stmtPay->execute([$supplier_id, $received_date, $pay_card, 'Card', null, null, null, null, "Card payment during intake #$grn_number", $user_id]);
+                $payment_id = $pdo->lastInsertId();
+                $new_bal -= $pay_card;
+                $stmtLedger2->execute([$supplier_id, $payment_id, $pay_card, $new_bal, "Card payment for intake #$grn_number"]);
+            }
+
+            if ($pay_cheque > 0) {
+                $stmtPay->execute([$supplier_id, $received_date, $pay_cheque, 'Cheque', $cheque_number, $cheque_date, 'Pending', $bank_name, "Cheque payment during intake #$grn_number", $user_id]);
+                $payment_id = $pdo->lastInsertId();
+                $new_bal -= $pay_cheque;
+                $stmtLedger2->execute([$supplier_id, $payment_id, $pay_cheque, $new_bal, "Cheque #$cheque_number issued for intake #$grn_number"]);
+
+                // Sync with Central Cheques table (Request 5)
+                $stmtCentralChq = $pdo->prepare("
+                    INSERT INTO cheques (type, payee_payer_name, bank_name, cheque_number, banking_date, amount, status, reference_id)
+                    VALUES ('Issued', ?, ?, ?, ?, ?, 'Pending', ?)
                 ");
-                $ref_notes = "Paid via $payment_method during intake #$grn_number";
-                $stmtLedger2->execute([$supplier_id, $payment_id, $paid_amount, $new_bal2, $ref_notes]);
+                $stmtCentralChq->execute([$supplier_name, $bank_name, $cheque_number, $cheque_date, $pay_cheque, $payment_id]);
+            }
+
+            if ($pay_transfer > 0) {
+                $stmtPay->execute([$supplier_id, $received_date, $pay_transfer, 'Bank_Transfer', null, null, null, null, "Bank Transfer during intake #$grn_number", $user_id]);
+                $payment_id = $pdo->lastInsertId();
+                $new_bal -= $pay_transfer;
+                $stmtLedger2->execute([$supplier_id, $payment_id, $pay_transfer, $new_bal, "Bank Transfer payment for intake #$grn_number"]);
             }
 
             $pdo->commit();
@@ -362,29 +408,43 @@ $po_id_param = $_GET['po_id'] ?? null;
                                 <input type="date" id="inputReceivedDate" class="form-control" value="<?= date('Y-m-d') ?>" required>
                             </div>
 
-                            <h5 class="fw-bold mt-4 mb-3 border-bottom pb-2">Billing & Ledger Log</h5>
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold">Payment Terms / Method</label>
-                                <select id="inputPayMethod" class="form-select" onchange="togglePayFields()" required>
-                                    <option value="Credit">Credit (Add to Ledger Owed)</option>
-                                    <option value="Cash">Cash</option>
-                                    <option value="Cheque">Cheque</option>
-                                    <option value="Bank_Transfer">Bank Transfer</option>
-                                </select>
+                            <h5 class="fw-bold mt-4 mb-3 border-bottom pb-2">Split Payments</h5>
+                            <p class="text-muted small">Enter amounts paid under each method. Any unpaid balance will automatically post to Supplier Credit ledger.</p>
+                            
+                            <div class="row g-2">
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small fw-bold text-success"><i class="bi bi-cash"></i> Cash Paid</label>
+                                    <input type="number" id="payCash" class="form-control form-control-sm fw-semibold" value="0.00" step="0.01" min="0.00" onkeyup="recalculateGRNPayments()">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small fw-bold text-primary"><i class="bi bi-credit-card"></i> Card Paid</label>
+                                    <input type="number" id="payCard" class="form-control form-control-sm fw-semibold" value="0.00" step="0.01" min="0.00" onkeyup="recalculateGRNPayments()">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small fw-bold text-warning"><i class="bi bi-bank"></i> Cheque Paid</label>
+                                    <input type="number" id="payCheque" class="form-control form-control-sm fw-semibold" value="0.00" step="0.01" min="0.00" onkeyup="toggleChequeFields(); recalculateGRNPayments()">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label small fw-bold text-info"><i class="bi bi-arrow-left-right"></i> Transfer Paid</label>
+                                    <input type="number" id="payTransfer" class="form-control form-control-sm fw-semibold" value="0.00" step="0.01" min="0.00" onkeyup="recalculateGRNPayments()">
+                                </div>
                             </div>
-                            <div class="mb-3" id="paidAmountFields">
-                                <label class="form-label small fw-bold">Paid Amount (Rs.)</label>
-                                <input type="number" id="inputPaidAmount" class="form-control fw-semibold" step="0.01" min="0.00" value="0.00" onkeyup="checkPartialPaid()">
-                            </div>
-                            <div id="chequeIntakeFields" class="d-none">
+
+                            <!-- Cheque Specific Fields (Only if Cheque Paid > 0) -->
+                            <div id="chequeIntakeFields" class="d-none border p-3 rounded bg-light mt-2">
+                                <h6 class="fw-bold small mb-2 text-warning"><i class="bi bi-info-circle"></i> Cheque Banking Details</h6>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Bank Name</label>
+                                    <input type="text" id="inputBankName" class="form-control form-control-sm" placeholder="e.g. BOC, Sampath">
+                                </div>
                                 <div class="row">
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label small fw-bold">Cheque Number</label>
-                                        <input type="text" id="inputChqNumber" class="form-control" placeholder="6-digits">
+                                    <div class="col-6 mb-2">
+                                        <label class="form-label small fw-semibold">Cheque Number</label>
+                                        <input type="text" id="inputChqNumber" class="form-control form-control-sm" placeholder="6-digits">
                                     </div>
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label small fw-bold">Cheque Date</label>
-                                        <input type="date" id="inputChqDate" class="form-control">
+                                    <div class="col-6 mb-2">
+                                        <label class="form-label small fw-semibold">Banking Date</label>
+                                        <input type="date" id="inputChqDate" class="form-control form-control-sm">
                                     </div>
                                 </div>
                             </div>
@@ -785,48 +845,36 @@ $po_id_param = $_GET['po_id'] ?? null;
             recalculateGRN();
         }
 
-        function recalculateGRN() {
-            let total = 0.00;
-            grnItems.forEach(item => {
-                total += (item.cost_price * item.quantity_received);
-            });
-
-            document.getElementById('lblGRNSub').textContent = total.toLocaleString('en-LK', { minimumFractionDigits: 2 });
-            
-            const method = document.getElementById('inputPayMethod').value;
-            const paidInput = document.getElementById('inputPaidAmount');
-            
-            if (method !== 'Credit' && method !== 'Cheque') {
-                paidInput.value = total.toFixed(2);
-            }
-            
-            checkPartialPaid();
+            recalculateGRNPayments();
         }
 
-        function togglePayFields() {
-            const method = document.getElementById('inputPayMethod').value;
+        function toggleChequeFields() {
+            const chqAmt = parseFloat(document.getElementById('payCheque').value) || 0.00;
             const chqDiv = document.getElementById('chequeIntakeFields');
-            const paidDiv = document.getElementById('paidAmountFields');
-            
-            if (method === 'Cheque') {
-                chqDiv.className = 'd-block';
+            if (chqAmt > 0) {
+                chqDiv.classList.remove('d-none');
+                document.getElementById('inputBankName').required = true;
                 document.getElementById('inputChqNumber').required = true;
                 document.getElementById('inputChqDate').required = true;
-                paidDiv.classList.remove('d-none');
             } else {
-                chqDiv.className = 'd-none';
+                chqDiv.classList.add('d-none');
+                document.getElementById('inputBankName').required = false;
                 document.getElementById('inputChqNumber').required = false;
                 document.getElementById('inputChqDate').required = false;
             }
-
-            recalculateGRN();
         }
 
-        function checkPartialPaid() {
-            const sub = parseFloat(document.getElementById('lblGRNSub').textContent.replace(/,/g, '')) || 0.00;
-            const paid = parseFloat(document.getElementById('inputPaidAmount').value) || 0.00;
+        function recalculateGRNPayments() {
+            const total = parseFloat(document.getElementById('lblGRNSub').textContent.replace(/,/g, '')) || 0.00;
             
-            const owed = Math.max(0, sub - paid);
+            const cash = parseFloat(document.getElementById('payCash').value) || 0.00;
+            const card = parseFloat(document.getElementById('payCard').value) || 0.00;
+            const cheque = parseFloat(document.getElementById('payCheque').value) || 0.00;
+            const transfer = parseFloat(document.getElementById('payTransfer').value) || 0.00;
+            
+            const totalPaid = cash + card + cheque + transfer;
+            const owed = Math.max(0, total - totalPaid);
+            
             document.getElementById('lblGRNOwed').textContent = owed.toLocaleString('en-LK', { minimumFractionDigits: 2 });
         }
 
@@ -842,10 +890,16 @@ $po_id_param = $_GET['po_id'] ?? null;
                 po_id: document.getElementById('inputPOId').value,
                 supplier_id: document.getElementById('inputSupplier').value,
                 received_date: document.getElementById('inputReceivedDate').value,
-                payment_method: document.getElementById('inputPayMethod').value,
-                paid_amount: document.getElementById('inputPaidAmount').value,
-                cheque_number: document.getElementById('inputChqNumber').value,
-                cheque_date: document.getElementById('inputChqDate').value,
+                
+                pay_cash: document.getElementById('payCash').value,
+                pay_card: document.getElementById('payCard').value,
+                pay_cheque: document.getElementById('payCheque').value,
+                pay_transfer: document.getElementById('payTransfer').value,
+                
+                bank_name: parseFloat(document.getElementById('payCheque').value) > 0 ? document.getElementById('inputBankName').value : '',
+                cheque_number: parseFloat(document.getElementById('payCheque').value) > 0 ? document.getElementById('inputChqNumber').value : '',
+                cheque_date: parseFloat(document.getElementById('payCheque').value) > 0 ? document.getElementById('inputChqDate').value : '',
+                
                 items: grnItems,
                 user_id: localStorage.getItem('user_id') || 1
             };
