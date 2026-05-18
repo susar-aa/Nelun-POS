@@ -37,7 +37,7 @@ if ($action === 'getAnalytics') {
                 DATE(s.sale_date) as date,
                 COUNT(DISTINCT s.sale_id) as bill_count,
                 SUM(si.item_total) as revenue,
-                SUM(si.item_total - (si.quantity * COALESCE(si.cost_price, 0))) as profit
+                SUM(si.item_total - (si.quantity * COALESCE(si.cost_price, p.cost, 0))) as profit
             FROM sales s
             JOIN sale_items si ON s.sale_id = si.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
@@ -173,7 +173,7 @@ if ($action === 'getAnalytics') {
                 AVG(COALESCE(si.cost_price, p.cost, 0)) as unit_cost,
                 SUM(si.quantity) as total_qty,
                 SUM(si.item_total) as total_revenue,
-                SUM(si.item_total - (si.quantity * COALESCE(si.cost_price, 0))) as total_profit
+                SUM(si.item_total - (si.quantity * COALESCE(si.cost_price, p.cost, 0))) as total_profit
             FROM sale_items si
             JOIN sales s ON si.sale_id = s.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id

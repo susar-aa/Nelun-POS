@@ -90,7 +90,7 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
         $todayCashIn = $stmtCashIn->fetchColumn();
 
         $stmtProfit = $pdo->query("
-            SELECT COALESCE(SUM(si.item_total - (si.quantity * COALESCE(p.cost, 0))), 0) 
+            SELECT COALESCE(SUM(si.item_total - (si.quantity * COALESCE(si.cost_price, p.cost, 0))), 0) 
             FROM sale_items si 
             JOIN sales s ON si.sale_id = s.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
