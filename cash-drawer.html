@@ -450,7 +450,9 @@
                             yesterdaySales: parseFloat(yesterday.sales) || 0.00,
                             todayCashIn: parseFloat(today.cash_in) || 0.00,
                             dailyBillCount: parseInt(today.bills) || 0,
-                            totalBillCount: parseInt(allTime.bills) || 0
+                            totalBillCount: parseInt(allTime.bills) || 0,
+                            // KEY FIX: store today's already-recorded expenses from API
+                            todayDbExpenses: parseFloat(today.expenses) || 0.00
                         };
                         
                         expectedCardSales.textContent = dashboardSummaryData.dailyCardPaymentTotal.toFixed(2);
@@ -597,8 +599,16 @@
                 
                 await fetchDashboardSummaryForEndDay(); 
                 
+                // Pre-populate expense tab with already-recorded DB expenses
                 expenseEntriesDiv.innerHTML = '';
-                addExpenseEntry(); 
+                if (dashboardSummaryData.todayDbExpenses > 0) {
+                    // Show a read-only summary row for expenses already in DB
+                    const dbRow = document.createElement('div');
+                    dbRow.className = 'alert alert-info py-2 px-3 mb-2 small';
+                    dbRow.innerHTML = `<i class="bi bi-database-check me-1"></i><strong>Already recorded today:</strong> Rs. ${dashboardSummaryData.todayDbExpenses.toFixed(2)} <span class="text-muted">(from Expenses page)</span>`;
+                    expenseEntriesDiv.appendChild(dbRow);
+                }
+                addExpenseEntry(); // blank row for any NEW expense at day end
                 calculateTotalExpenses(); 
 
                 totalCoinsInput.value = '0.00'; 
@@ -610,25 +620,42 @@
 
             // --- Generate End Day Report ---
             generateEndDayReportBtn.addEventListener('click', async () => {
-                // Collect expense entries fresh from DOM (do NOT rely on display span)
-                const expenseDetails = [];
-                let totalExpenses = 0;
+                // --- Collect NEW expenses entered in modal (not DB ones) ---
+                const newExpenseDetails = [];
+                let newModalExpensesTotal = 0;
                 document.querySelectorAll('.expense-entry').forEach(entry => {
                     const description = entry.querySelector('.expense-description').value.trim();
                     const amount = parseFloat(entry.querySelector('.expense-amount').value) || 0;
                     if (description && amount > 0) {
-                        expenseDetails.push({ description, amount });
-                        totalExpenses += amount;
+                        newExpenseDetails.push({ description, amount });
+                        newModalExpensesTotal += amount;
                     }
                 });
+
+                // --- Combine DB expenses + new modal entries ---
+                const todayDbExpenses = dashboardSummaryData.todayDbExpenses || 0;
+                const totalExpenses = todayDbExpenses + newModalExpensesTotal;
+
+                // Build full expense list for report (DB summary + new modal entries)
+                const expenseDetails = [];
+                if (todayDbExpenses > 0) {
+                    expenseDetails.push({ description: 'Recorded expenses (day)', amount: todayDbExpenses });
+                }
+                newExpenseDetails.forEach(e => expenseDetails.push(e));
+
                 // Keep display in sync
                 totalExpensesDisplay.textContent = totalExpenses.toFixed(2);
 
-                // Collect other report values
+                // --- Gross balance = API balance (already has DB expenses deducted) + DB expenses ---
+                // This gives the pre-expense gross figure for display, so the math reads:
+                //   System Bal (gross) - All Expenses = Expected Cash
+                const grossBalance = currentCashDrawerBalance + todayDbExpenses;
+
                 const countedCash = parseFloat(totalCountedCashDisplay.textContent) || 0;
                 const countedCardPayments = parseFloat(totalCardPaymentsInput.value) || 0;
                 const totalCoins = parseFloat(totalCoinsInput.value) || 0;
-                const expectedCashBalanceAfterExpenses = currentCashDrawerBalance - totalExpenses;
+                // Expected = gross - total expenses = (apiBalance + dbExp) - (dbExp + newExp) = apiBalance - newExp
+                const expectedCashBalanceAfterExpenses = grossBalance - totalExpenses;
                 const finalCashDifference = countedCash - expectedCashBalanceAfterExpenses;
                 const cardDifference = countedCardPayments - (dashboardSummaryData.dailyCardPaymentTotal || 0);
 
@@ -653,7 +680,7 @@
                     reportTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
                     cashier: localStorage.getItem('username'),
                     
-                    expectedCashDrawerBalance: currentCashDrawerBalance,
+                    expectedCashDrawerBalance: grossBalance,  // gross (pre-expense) for readable display
                     countedCash: countedCash,
                     cashDifference: finalCashDifference, 
                     totalCoinsEntered: totalCoins,
@@ -673,8 +700,8 @@
                     countedCardPayments: countedCardPayments,
                     cardDifference: cardDifference,
 
-                    expenses: expenseDetails,
-                    totalExpenses: totalExpenses
+                    expenses: expenseDetails,         // DB expenses + new modal expenses combined
+                    totalExpenses: totalExpenses      // combined total
                 };
 
                 // Save to Server History
@@ -692,17 +719,17 @@
                 localStorage.setItem('endDayReportData', JSON.stringify(endDayReportData));
                 window.open('end_day_receipt.html', '_blank'); 
 
-                // 1. Record Expenses in DB
+                // 1. Record only NEW modal expenses to DB (DB expenses already recorded)
                 let expenseError = false;
-                if (expenseDetails.length > 0) {
+                if (newExpenseDetails.length > 0) {
                     try {
                         const response = await fetch(API_URL, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 action: 'add_expense',
-                                amount: totalExpenses,
-                                description: 'End Day Expenses: ' + expenseDetails.map(e => e.description).join(', '),
+                                amount: newModalExpensesTotal,
+                                description: 'End Day Expenses: ' + newExpenseDetails.map(e => e.description).join(', '),
                                 user_id: USER_ID
                             })
                         });
@@ -712,7 +739,8 @@
                 }
 
                 // 2. Reset Drawer (Cash Out)
-                const cashOutAmount = currentCashDrawerBalance - totalExpenses;
+                // cashOutAmount = balance AFTER deducting new modal expenses (DB expenses already deducted in balance)
+                const cashOutAmount = currentCashDrawerBalance - newModalExpensesTotal;
                 if (cashOutAmount > 0) {
                     try {
                         const response = await fetch(API_URL, {
