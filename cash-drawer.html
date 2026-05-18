@@ -610,23 +610,27 @@
 
             // --- Generate End Day Report ---
             generateEndDayReportBtn.addEventListener('click', async () => {
-                const countedCash = parseFloat(totalCountedCashDisplay.textContent) || 0;
-                const totalExpenses = parseFloat(totalExpensesDisplay.textContent) || 0;
-                const countedCardPayments = parseFloat(totalCardPaymentsInput.value) || 0;
-                const totalCoins = parseFloat(totalCoinsInput.value) || 0; 
-
-                const expectedCashBalanceAfterExpenses = currentCashDrawerBalance - totalExpenses;
-                const finalCashDifference = countedCash - expectedCashBalanceAfterExpenses;
-                const cardDifference = countedCardPayments - (dashboardSummaryData.dailyCardPaymentTotal || 0);
-
+                // Collect expense entries fresh from DOM (do NOT rely on display span)
                 const expenseDetails = [];
+                let totalExpenses = 0;
                 document.querySelectorAll('.expense-entry').forEach(entry => {
                     const description = entry.querySelector('.expense-description').value.trim();
                     const amount = parseFloat(entry.querySelector('.expense-amount').value) || 0;
                     if (description && amount > 0) {
                         expenseDetails.push({ description, amount });
+                        totalExpenses += amount;
                     }
                 });
+                // Keep display in sync
+                totalExpensesDisplay.textContent = totalExpenses.toFixed(2);
+
+                // Collect other report values
+                const countedCash = parseFloat(totalCountedCashDisplay.textContent) || 0;
+                const countedCardPayments = parseFloat(totalCardPaymentsInput.value) || 0;
+                const totalCoins = parseFloat(totalCoinsInput.value) || 0;
+                const expectedCashBalanceAfterExpenses = currentCashDrawerBalance - totalExpenses;
+                const finalCashDifference = countedCash - expectedCashBalanceAfterExpenses;
+                const cardDifference = countedCardPayments - (dashboardSummaryData.dailyCardPaymentTotal || 0);
 
                 // Capture detailed cash count
                 const cashBreakdown = [];
