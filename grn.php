@@ -681,7 +681,6 @@ $po_id_param = $_GET['po_id'] ?? null;
             } catch(e) { showAlert('Error getting GRN details.', 'danger'); }
         }
 
-        // Intake screen
         function showCreateScreen() {
             document.getElementById('historyView').classList.add('d-none');
             document.getElementById('createView').classList.remove('d-none');
@@ -690,7 +689,13 @@ $po_id_param = $_GET['po_id'] ?? null;
             document.getElementById('grnForm').reset();
             document.getElementById('inputPOId').value = '';
             document.getElementById('grnCreateSub').textContent = "Receive supplier stock, set retail prices and batches";
-            document.getElementById('paidAmountFields').classList.remove('d-none');
+            
+            // Reset split payment values
+            document.getElementById('payCash').value = '0.00';
+            document.getElementById('payCard').value = '0.00';
+            document.getElementById('payCheque').value = '0.00';
+            document.getElementById('payTransfer').value = '0.00';
+            document.getElementById('chequeIntakeFields').classList.add('d-none');
             
             grnItems = [];
             renderGRNItems();
