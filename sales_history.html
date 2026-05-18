@@ -170,9 +170,8 @@
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Loading...</td></tr>';
 
             try {
-                const bId = localStorage.getItem('admin_selected_branch') || 'all';
-                let url = `sales.php?action=getSalesHistory&start=${start}&end=${end}&payment_method=${method}&page=${page}&limit=${itemsPerPage}&branch_id=${bId}`;
-                if(id) url = `sales.php?action=getSalesHistory&id=${id}&page=${page}&limit=${itemsPerPage}&branch_id=${bId}`;
+                let url = `sales.php?action=getSalesHistory&start=${start}&end=${end}&payment_method=${method}&page=${page}&limit=${itemsPerPage}`;
+                if(id) url = `sales.php?action=getSalesHistory&id=${id}&page=${page}&limit=${itemsPerPage}`;
 
                 const res = await fetch(url);
                 const data = await res.json();

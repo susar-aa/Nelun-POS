@@ -29,8 +29,6 @@ if ($action === 'getAnalytics') {
     // --- NEW: Detailed Analytics Endpoint ---
     $startDate = $_GET['start'] ?? date('Y-m-01'); // Default to 1st of current month
     $endDate = $_GET['end'] ?? date('Y-m-d');
-    $bFilter = !empty($_GET['branch_id']) && $_GET['branch_id'] !== 'all' ? " AND s.branch_id = " . intval($_GET['branch_id']) : "";
-    $sFilter = !empty($_GET['branch_id']) && $_GET['branch_id'] !== 'all' ? " AND branch_id = " . intval($_GET['branch_id']) : "";
 
     try {
         // 1. Sales & Profit Over Time (Grouped by Date)
@@ -43,7 +41,7 @@ if ($action === 'getAnalytics') {
             FROM sales s
             JOIN sale_items si ON s.sale_id = si.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
-            WHERE s.status = 'Complete' AND s.sale_date BETWEEN ? AND ? $bFilter
+            WHERE s.status = 'Complete' AND s.sale_date BETWEEN ? AND ?
             GROUP BY date
             ORDER BY date ASC
         ";
@@ -55,7 +53,7 @@ if ($action === 'getAnalytics') {
         $sqlPayment = "
             SELECT payment_method, SUM(total_amount) as total 
             FROM sales 
-            WHERE status = 'Complete' AND sale_date BETWEEN ? AND ? $sFilter
+            WHERE status = 'Complete' AND sale_date BETWEEN ? AND ?
             GROUP BY payment_method
         ";
         $stmtPayment = $pdo->prepare($sqlPayment);

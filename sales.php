@@ -111,38 +111,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
     try {
         $pdo->beginTransaction();
 
-        // 1. Verify User and fetch their database role/branch
-        $stmtUserCheck = $pdo->prepare("SELECT user_id, role, branch_id FROM users WHERE user_id = ?");
+        // 1. Verify User Exists
+        // This prevents the generic "Integrity constraint violation" error
+        $stmtUserCheck = $pdo->prepare("SELECT user_id FROM users WHERE user_id = ?");
         $stmtUserCheck->execute([$saleData['user_id']]);
-        $userRow = $stmtUserCheck->fetch(PDO::FETCH_ASSOC);
+        $validUser = $stmtUserCheck->fetchColumn();
 
-        if (!$userRow) {
+        if (!$validUser) {
             // User ID from frontend is invalid. 
             // Try to fallback to ID 1 (Admin) if it exists, otherwise throw error.
-            $stmtAdmin = $pdo->query("SELECT user_id, role, branch_id FROM users ORDER BY user_id ASC LIMIT 1");
-            $userRow = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
+            $stmtAdmin = $pdo->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+            $fallbackId = $stmtAdmin->fetchColumn();
             
-            if ($userRow) {
-                error_log("Warning: Invalid User ID " . $saleData['user_id'] . ". Falling back to ID " . $userRow['user_id']);
-                $saleData['user_id'] = $userRow['user_id']; // Auto-correct the ID
+            if ($fallbackId) {
+                error_log("Warning: Invalid User ID " . $saleData['user_id'] . ". Falling back to ID $fallbackId.");
+                $saleData['user_id'] = $fallbackId; // Auto-correct the ID
             } else {
                 throw new Exception("Invalid User ID: " . $saleData['user_id'] . ". No valid users found in DB.");
             }
         }
 
-        // If the user is not an Admin, strictly enforce their database assigned branch_id
-        if (strtolower($userRow['role']) !== 'admin' && strtolower($userRow['role']) !== 'manager') {
-            $branch_id = $userRow['branch_id'];
-        } else {
-            // Admins/Managers can specify branch or default to their assigned branch
-            $branch_id = !empty($saleData['branch_id']) ? $saleData['branch_id'] : $userRow['branch_id'];
-        }
-        $stmt = $pdo->prepare("INSERT INTO sales (user_id, branch_id, total_amount, sale_date, sale_time, payment_method, discount_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        // 2. Prepare Sales Insert
+        $stmt = $pdo->prepare("INSERT INTO sales (user_id, total_amount, sale_date, sale_time, payment_method, discount_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
         
         try {
             $stmt->execute([
                 $saleData['user_id'],
-                $branch_id,
                 $saleData['total_amount'],
                 $saleData['sale_date'],
                 $saleData['sale_time'],
@@ -308,16 +302,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20; 
     $offset = ($page - 1) * $limit;
-    $branchId = $_GET['branch_id'] ?? 'all';
- 
+
     try {
         $baseSql = "FROM sales s LEFT JOIN users u ON s.user_id = u.user_id WHERE s.status = 'Complete'";
         $params = [];
-
-        if ($branchId !== 'all' && $branchId !== '') {
-            $baseSql .= " AND s.branch_id = ?";
-            $params[] = intval($branchId);
-        }
         
         if (!empty($searchId)) {
             $baseSql .= " AND s.sale_id = ?";

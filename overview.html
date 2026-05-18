@@ -240,14 +240,6 @@
 
             <!-- Right: View Controls -->
             <div class="info-group">
-                
-                <!-- Branch Selector (Admin Only) -->
-                <div class="branch-selector-container">
-                    <select id="branchSelector" class="form-select form-select-sm rounded-pill" style="font-size: 0.85rem; border-color: rgba(0,0,0,0.1); cursor: pointer;" onchange="changeAdminBranch(this.value)">
-                        <option value="all">All Branches</option>
-                    </select>
-                </div>
-
                 <!-- Segmented Control -->
                 <ul class="nav nav-pills ios-segmented-control" id="dashboardTabs" role="tablist">
                     <li class="nav-item" role="presentation">
@@ -579,51 +571,9 @@
 
         // Load User Info from Storage
         const storedUser = localStorage.getItem('username') || 'Guest';
-        const storedRole = localStorage.getItem('role') || 'Cashier';
-        const storedBranchId = localStorage.getItem('branch_id'); // GET ASSIGNED BRANCH
-
+        const storedRole = localStorage.getItem('role') || 'Staff';
         document.getElementById('welcomeUser').textContent = storedUser;
         document.getElementById('welcomeRole').textContent = storedRole;
-
-        // --- STRICT MODIFICATION: Client-Side UI Isolation ---
-        // If the user is NOT an Admin (covers Cashier, Staff, etc.)
-        if (storedRole !== 'Admin') {
-            // Force the internal tracker to the assigned branch
-            localStorage.setItem('admin_selected_branch', storedBranchId);
-            
-            // Mask and COMPLETELY remove any explicitly tagged branch selectors across the UI tree
-            document.querySelectorAll('.branch-selector-container, #branchSelector, .branch-filter').forEach(el => {
-                el.style.setProperty('display', 'none', 'important');
-                el.remove(); // Safety: Remove it from DOM completely
-            });
-        } else {
-            // If they are an Admin, load the branch selector list
-            fetchBranchesForAdmin();
-        }
-
-        function changeAdminBranch(val) {
-            localStorage.setItem('admin_selected_branch', val);
-            fetchDashboardData(); // Refresh Data immediately upon switching
-        }
-
-        async function fetchBranchesForAdmin() {
-            try {
-                const res = await fetch('branch_api.php?action=get_branches');
-                const data = await res.json();
-                if (data.success) {
-                    const selector = document.getElementById('branchSelector');
-                    if(selector) {
-                        data.branches.forEach(b => {
-                            const opt = document.createElement('option');
-                            opt.value = b.branch_id;
-                            opt.textContent = b.branch_name;
-                            selector.appendChild(opt);
-                        });
-                        selector.value = localStorage.getItem('admin_selected_branch') || 'all';
-                    }
-                }
-            } catch(e) { console.error("Error fetching branches:", e); }
-        }
 
         // --- 2. Dashboard Logic ---
         let salesChart = null;
@@ -634,15 +584,8 @@
 
         async function fetchDashboardData() {
             try {
-                // Call the API (Dynamically mapped based on role limits)
-                const activeRole = localStorage.getItem('role');
-                const activeBranchId = localStorage.getItem('branch_id');
-                // Use the !== 'Admin' check here as well to enforce isolation
-                const bId = (activeRole !== 'Admin') 
-                    ? activeBranchId 
-                    : (localStorage.getItem('admin_selected_branch') || 'all');
-
-                const res = await fetch(`pos_api.php?action=get_enhanced_dashboard_summary&branch_id=${bId}`);
+                // Call the API (Same Endpoint)
+                const res = await fetch(`pos_api.php?action=get_enhanced_dashboard_summary`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -725,14 +668,8 @@
             const startDate = new Date(today.setDate(today.getDate() - 6)).toISOString().split('T')[0];
 
             try {
-                // Apply strict !== Admin mapping for charts as well
-                const activeRole = localStorage.getItem('role');
-                const activeBranchId = localStorage.getItem('branch_id');
-                const bId = (activeRole !== 'Admin') 
-                    ? activeBranchId 
-                    : (localStorage.getItem('admin_selected_branch') || 'all');
-                    
-                const res = await fetch(`reports.php?action=getAnalytics&start=${startDate}&end=${endDate}&branch_id=${bId}`);
+                // Ensure reports.php endpoint exists or modify this URL
+                const res = await fetch(`reports.php?action=getAnalytics&start=${startDate}&end=${endDate}`);
                 const analytics = await res.json();
                 if(analytics.success) {
                     renderCharts(analytics.trend, summaryData);

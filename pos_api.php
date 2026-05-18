@@ -23,17 +23,6 @@ if ($method === 'POST') {
     $action = $input_data['action'] ?? null;
 }
 
-// --- STRICT MODIFICATION: Server-Side Branch Isolation Enforcement ---
-// Default-Deny Policy: We assume everyone is a Cashier unless explicitly proven to be an Admin via session.
-$isAdmin = isset($_SESSION['role']) && $_SESSION['role'] === 'Admin';
-if (!$isAdmin) {
-    $assignedBranch = $_SESSION['branch_id'] ?? null;
-    $_GET['branch_id'] = $assignedBranch;
-    if (is_array($input_data)) {
-        $input_data['branch_id'] = $assignedBranch;
-    }
-}
-
 // Helper: Validate or Fallback User ID
 function getValidUserId($pdo, $requestedUserId) {
     // 1. Check if requested user exists
@@ -81,9 +70,6 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
         $today = date('Y-m-d');
         $yesterday = date('Y-m-d', strtotime('-1 day'));
 
-        $bFilter = !empty($_GET['branch_id']) && $_GET['branch_id'] !== 'all' ? " AND branch_id = " . intval($_GET['branch_id']) : "";
-        $sFilter = !empty($_GET['branch_id']) && $_GET['branch_id'] !== 'all' ? " AND s.branch_id = " . intval($_GET['branch_id']) : "";
-
         $stmtToday = $pdo->query("
             SELECT 
                 COALESCE(SUM(total_amount), 0) as total_sales,
@@ -93,7 +79,7 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
                 COUNT(CASE WHEN payment_method = 'Cash' THEN 1 END) as cash_bills,
                 COUNT(CASE WHEN payment_method = 'Card' THEN 1 END) as card_bills
             FROM sales 
-            WHERE status = 'Complete' AND sale_date = '$today' $bFilter
+            WHERE status = 'Complete' AND sale_date = '$today'
         ");
         $todayData = $stmtToday->fetch();
 
@@ -108,16 +94,16 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
             FROM sale_items si 
             JOIN sales s ON si.sale_id = s.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
-            WHERE s.status = 'Complete' AND s.sale_date = '$today' $sFilter
+            WHERE s.status = 'Complete' AND s.sale_date = '$today'
         ");
         $todayProfit = $stmtProfit->fetchColumn();
 
-        $stmtYest = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'Complete' AND sale_date = '$yesterday' $bFilter");
+        $stmtYest = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'Complete' AND sale_date = '$yesterday'");
         $yesterdaySales = $stmtYest->fetchColumn();
 
         $stmtDrawerCalc = $pdo->query("
             SELECT 
-                (SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status='Complete' AND payment_method='Cash' $bFilter) +
+                (SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status='Complete' AND payment_method='Cash') +
                 (SELECT COALESCE(SUM(amount), 0) FROM cash_drawer_transactions WHERE type='Cash In') -
                 (SELECT COALESCE(SUM(amount), 0) FROM cash_drawer_transactions WHERE type IN ('Cash Out', 'Refund')) -
                 (SELECT COALESCE(SUM(amount), 0) FROM expenses) 
@@ -134,7 +120,7 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
                 COUNT(CASE WHEN payment_method = 'Cash' THEN 1 END) as total_cash_bills,
                 COUNT(CASE WHEN payment_method = 'Card' THEN 1 END) as total_card_bills
             FROM sales 
-            WHERE status = 'Complete' $bFilter
+            WHERE status = 'Complete'
         ");
         $allTimeData = $stmtAllTime->fetch();
 
@@ -156,9 +142,7 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
                 COALESCE(si.product_name, p.name) as name,
                 SUM(si.quantity) as total_qty
             FROM sale_items si
-            JOIN sales s ON si.sale_id = s.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
-            WHERE s.status = 'Complete' $sFilter
             GROUP BY si.product_id
             ORDER BY total_qty DESC
             LIMIT 5
@@ -232,7 +216,7 @@ elseif ($method === 'POST' && $action === 'add_cash_in') {
         respondWithError("Invalid amount or user ID.", 400);
     }
     
-    $user_id = getValidUserId($pdo, $user_id);
+    $user_id = getValidUserId($pdo, $user_id); // FIX: Validate User ID
 
     try {
         $stmt = $pdo->prepare("INSERT INTO cash_drawer_transactions (user_id, amount, type, description, transaction_date, transaction_time) VALUES (?, ?, 'Cash In', ?, CURDATE(), CURTIME())");
@@ -253,7 +237,7 @@ elseif ($method === 'POST' && $action === 'add_cash_out') {
         respondWithError("Invalid amount or user ID.", 400);
     }
 
-    $user_id = getValidUserId($pdo, $user_id);
+    $user_id = getValidUserId($pdo, $user_id); // FIX: Validate User ID
 
     try {
         $stmt = $pdo->prepare("INSERT INTO cash_drawer_transactions (user_id, amount, type, description, transaction_date, transaction_time) VALUES (?, ?, 'Cash Out', ?, CURDATE(), CURTIME())");
@@ -274,7 +258,7 @@ elseif ($method === 'POST' && $action === 'add_expense') {
         respondWithError("Invalid expense data.", 400);
     }
 
-    $user_id = getValidUserId($pdo, $user_id); 
+    $user_id = getValidUserId($pdo, $user_id); // FIX: Validate User ID
 
     try {
         $stmt = $pdo->prepare("INSERT INTO expenses (user_id, amount, description, expense_date, expense_time) VALUES (?, ?, ?, CURDATE(), CURTIME())");

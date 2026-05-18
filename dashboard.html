@@ -383,52 +383,31 @@
                     <span>Returns</span>
                 </a>
 
-                <div id="adminMenuSection">
-                    <div class="menu-label">Admin</div>
+                <div class="menu-label">Admin</div>
 
-                    <!-- Reports Submenu -->
-                    <a class="nav-item-custom" data-bs-toggle="collapse" href="#reportsSubmenu" role="button" aria-expanded="false">
-                        <i class="bi bi-bar-chart-fill"></i>
-                        <span>Reports (Analytics)</span>
-                        <i class="bi bi-chevron-down chevron"></i>
-                    </a>
-                    <div class="collapse submenu" id="reportsSubmenu">
-                        <a class="nav-item-custom" data-link="overview.html">Dashboard Analytics</a>
-                        <a class="nav-item-custom" data-link="reports.html">General Reports</a>
-                        <a class="nav-item-custom" data-link="report_history.html">End Day Reports</a>
-                    </div>
-
-                    <a class="nav-item-custom" data-link="user-management.php">
-                        <i class="bi bi-people-fill"></i>
-                        <span>Users & Roles</span>
-                    </a>
-
-                    <a class="nav-item-custom" data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false">
-                        <i class="bi bi-gear-fill"></i>
-                        <span>Settings</span>
-                        <i class="bi bi-chevron-down chevron"></i>
-                    </a>
-                    <div class="collapse submenu" id="settingsSubmenu">
-                        <a class="nav-item-custom" data-link="branch-management.php">Branch Management</a>
-                        <a class="nav-item-custom" data-link="banner-management.php">Banners & Screensaver</a>
-                    </div>
+                <!-- Reports Submenu -->
+                <a class="nav-item-custom" data-bs-toggle="collapse" href="#reportsSubmenu" role="button" aria-expanded="false">
+                    <i class="bi bi-bar-chart-fill"></i>
+                    <span>Reports</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </a>
+                <div class="collapse submenu" id="reportsSubmenu">
+                    <a class="nav-item-custom" data-link="reports.html">General Reports</a>
+                    <a class="nav-item-custom" data-link="report_history.html">End Day Reports</a>
                 </div>
-            </div>
 
-            <!-- Admin: Branch Switcher Dropdown -->
-            <div class="px-3 mt-2" id="branchSelectorContainer" style="display: none;">
-                <label class="form-label mb-1" style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Viewing Branch Data</label>
-                <select class="form-select form-select-sm border shadow-sm mb-2 fw-bold text-primary" id="adminBranchSelector" style="border-radius: 8px; cursor: pointer; background-color: var(--hover-bg);">
-                    <option value="all">Global (All Branches)</option>
-                </select>
-            </div>
-            <!-- Staff: Read-Only Branch Indicator (cannot change) -->
-            <div class="px-3 mt-2" id="staffBranchIndicator" style="display: none;">
-                <label class="form-label mb-1" style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Your Assigned Branch</label>
-                <div class="border rounded p-2 mb-2 d-flex align-items-center" style="background: var(--hover-bg); border-radius: 8px !important;">
-                    <i class="bi bi-shop-window text-primary me-2"></i>
-                    <span class="fw-bold text-primary" id="staffBranchName" style="font-size: 0.9rem;">Loading...</span>
-                    <i class="bi bi-lock-fill text-muted ms-auto" style="font-size: 0.7rem;" title="Assigned by Admin"></i>
+                <a class="nav-item-custom" data-link="user-management.php">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Users & Roles</span>
+                </a>
+
+                <a class="nav-item-custom" data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false">
+                    <i class="bi bi-gear-fill"></i>
+                    <span>Settings</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </a>
+                <div class="collapse submenu" id="settingsSubmenu">
+                    <a class="nav-item-custom" data-link="banner-management.php">Banners & Screensaver</a>
                 </div>
             </div>
 
@@ -468,8 +447,8 @@
                 </button>
             </nav>
 
-            <!-- Iframe Content: starts blank, JS sets correct page based on role -->
-            <iframe id="contentFrame" src="about:blank" title="Main Content"></iframe>
+            <!-- Iframe Content -->
+            <iframe id="contentFrame" src="overview.html" title="Main Content"></iframe>
         </main>
     </div>
 
@@ -503,71 +482,6 @@
             
             document.getElementById('displayUsername').textContent = username;
             document.getElementById('displayRole').textContent = role;
-
-            // ================================================================
-            // ROLE-BASED ACCESS CONTROL
-            // ================================================================
-            const isAdmin = role.toLowerCase() === 'admin' || role.toLowerCase() === 'manager';
-
-            if (isAdmin) {
-                // ---- ADMIN: Full access + branch switcher dropdown ----
-                document.getElementById('branchSelectorContainer').style.display = 'block';
-                const branchSelector = document.getElementById('adminBranchSelector');
-
-                // Default to 'all' if no prior selection
-                const savedBranch = localStorage.getItem('admin_selected_branch') || 'all';
-                if (!localStorage.getItem('admin_selected_branch')) {
-                    localStorage.setItem('admin_selected_branch', 'all');
-                }
-
-                // Populate branch dropdown from API
-                fetch('branch_api.php?action=get_branches')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            data.branches.forEach(b => {
-                                const option = new Option(b.branch_name, b.branch_id);
-                                if (String(savedBranch) === String(b.branch_id)) option.selected = true;
-                                branchSelector.add(option);
-                            });
-                        }
-                    });
-
-                // When admin changes branch — reload iframe
-                branchSelector.addEventListener('change', (e) => {
-                    localStorage.setItem('admin_selected_branch', e.target.value);
-                    const currentSrc = contentFrame.contentWindow.location.href;
-                    contentFrame.src = (currentSrc && currentSrc !== 'about:blank') ? currentSrc : 'overview.html';
-                });
-
-                // Admins land on analytics dashboard
-                contentFrame.src = 'overview.html';
-
-            } else {
-                // ---- STAFF / BRANCH USER: Locked to assigned branch only ----
-
-                // 1. Hide ALL admin-only menu sections
-                const adminSection = document.getElementById('adminMenuSection');
-                if (adminSection) adminSection.style.display = 'none';
-
-                // 2. Show read-only branch badge — NO dropdown, NO way to change
-                const myBranchId   = localStorage.getItem('branch_id')   || '';
-                const myBranchName = localStorage.getItem('branch_name') || 'Assigned Branch';
-
-                document.getElementById('staffBranchIndicator').style.display = 'block';
-                document.getElementById('staffBranchName').textContent = myBranchName;
-
-                // 3. CRITICAL: Lock admin_selected_branch to their DB-assigned branch
-                //    This key is read by every API fetch (products, sales, reports)
-                //    so all data is automatically scoped to their branch.
-                localStorage.setItem('admin_selected_branch', myBranchId);
-
-                // 4. Staff land on Sales History of their branch — NOT overview/analytics
-                contentFrame.src = 'sales_history.html';
-
-                // Clear any active states (no nav item pre-selected)
-                document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
-            }
 
             // --- 2. Sidebar Toggle (Mobile) ---
             menuToggle.addEventListener('click', (e) => {
@@ -607,10 +521,10 @@
             // --- 4. Logout Logic ---
             document.getElementById('userProfileBtn').addEventListener('click', () => {
                 if(confirm('Log out of Nelun POS?')) {
-                    // Clear all session keys so next user starts clean
-                    ['user_id','username','role','branch_id','branch_name','admin_selected_branch']
-                        .forEach(k => localStorage.removeItem(k));
-                    window.location.href = 'login.html';
+                    localStorage.removeItem('user_id');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('role');
+                    window.location.href = 'login.html'; // Adjust login page URL if needed
                 }
             });
 

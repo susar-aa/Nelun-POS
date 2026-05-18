@@ -411,8 +411,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         const productModal = new bootstrap.Modal(document.getElementById('productModal'));
         const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
         
-        const userRole = localStorage.getItem('role') || 'Branch_User'; 
-        const isCashier = (userRole.toLowerCase() !== 'admin'); // Admins get full access, others view-only
+        const userRole = localStorage.getItem('role') || 'Cashier'; 
+        const isCashier = (userRole.toLowerCase() === 'cashier');
 
         let categories = [];
         let suppliers = [];
@@ -490,10 +490,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             const sup = document.getElementById('supFilter').value;
 
             try {
-                // Pass filters + branch_id to API (branch_id ensures branch-specific stock is shown)
-                const branchId = localStorage.getItem('admin_selected_branch') || 'all';
-                const branchParam = (branchId !== 'all') ? `&branch_id=${branchId}` : '';
-                const url = `products.php?action=getProductsPaginated&page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}&status=${status}&stock=${stock}&category_id=${cat}&supplier_id=${sup}${branchParam}`;
+                // Pass filters to API
+                const url = `products.php?action=getProductsPaginated&page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}&status=${status}&stock=${stock}&category_id=${cat}&supplier_id=${sup}`;
                 const res = await fetch(url);
                 const data = await res.json();
                 
