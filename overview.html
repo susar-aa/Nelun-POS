@@ -585,7 +585,8 @@
         async function fetchDashboardData() {
             try {
                 // Call the API (Same Endpoint)
-                const res = await fetch(`pos_api.php?action=get_enhanced_dashboard_summary`);
+                const bId = localStorage.getItem('admin_selected_branch') || 'all';
+                const res = await fetch(`pos_api.php?action=get_enhanced_dashboard_summary&branch_id=${bId}`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -669,7 +670,8 @@
 
             try {
                 // Ensure reports.php endpoint exists or modify this URL
-                const res = await fetch(`reports.php?action=getAnalytics&start=${startDate}&end=${endDate}`);
+                const bId = localStorage.getItem('admin_selected_branch') || 'all';
+                const res = await fetch(`reports.php?action=getAnalytics&start=${startDate}&end=${endDate}&branch_id=${bId}`);
                 const analytics = await res.json();
                 if(analytics.success) {
                     renderCharts(analytics.trend, summaryData);

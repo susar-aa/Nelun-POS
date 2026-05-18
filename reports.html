@@ -198,7 +198,8 @@
             const end = document.getElementById('endDate').value;
 
             try {
-                const res = await fetch(`reports.php?action=getAnalytics&start=${start}&end=${end}`);
+                const bId = localStorage.getItem('admin_selected_branch') || 'all';
+                const res = await fetch(`reports.php?action=getAnalytics&start=${start}&end=${end}&branch_id=${bId}`);
                 const result = await res.json();
 
                 if (result.success) {

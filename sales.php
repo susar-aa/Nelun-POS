@@ -132,11 +132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
         }
 
         // 2. Prepare Sales Insert
-        $stmt = $pdo->prepare("INSERT INTO sales (user_id, total_amount, sale_date, sale_time, payment_method, discount_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $branch_id = isset($saleData['branch_id']) ? $saleData['branch_id'] : null;
+        $stmt = $pdo->prepare("INSERT INTO sales (user_id, branch_id, total_amount, sale_date, sale_time, payment_method, discount_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         
         try {
             $stmt->execute([
                 $saleData['user_id'],
+                $branch_id,
                 $saleData['total_amount'],
                 $saleData['sale_date'],
                 $saleData['sale_time'],

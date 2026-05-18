@@ -70,6 +70,9 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
         $today = date('Y-m-d');
         $yesterday = date('Y-m-d', strtotime('-1 day'));
 
+        $bFilter = !empty($_GET['branch_id']) && $_GET['branch_id'] !== 'all' ? " AND branch_id = " . intval($_GET['branch_id']) : "";
+        $sFilter = !empty($_GET['branch_id']) && $_GET['branch_id'] !== 'all' ? " AND s.branch_id = " . intval($_GET['branch_id']) : "";
+
         $stmtToday = $pdo->query("
             SELECT 
                 COALESCE(SUM(total_amount), 0) as total_sales,
@@ -79,7 +82,7 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
                 COUNT(CASE WHEN payment_method = 'Cash' THEN 1 END) as cash_bills,
                 COUNT(CASE WHEN payment_method = 'Card' THEN 1 END) as card_bills
             FROM sales 
-            WHERE status = 'Complete' AND sale_date = '$today'
+            WHERE status = 'Complete' AND sale_date = '$today' $bFilter
         ");
         $todayData = $stmtToday->fetch();
 
@@ -94,16 +97,16 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
             FROM sale_items si 
             JOIN sales s ON si.sale_id = s.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
-            WHERE s.status = 'Complete' AND s.sale_date = '$today'
+            WHERE s.status = 'Complete' AND s.sale_date = '$today' $sFilter
         ");
         $todayProfit = $stmtProfit->fetchColumn();
 
-        $stmtYest = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'Complete' AND sale_date = '$yesterday'");
+        $stmtYest = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'Complete' AND sale_date = '$yesterday' $bFilter");
         $yesterdaySales = $stmtYest->fetchColumn();
 
         $stmtDrawerCalc = $pdo->query("
             SELECT 
-                (SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status='Complete' AND payment_method='Cash') +
+                (SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status='Complete' AND payment_method='Cash' $bFilter) +
                 (SELECT COALESCE(SUM(amount), 0) FROM cash_drawer_transactions WHERE type='Cash In') -
                 (SELECT COALESCE(SUM(amount), 0) FROM cash_drawer_transactions WHERE type IN ('Cash Out', 'Refund')) -
                 (SELECT COALESCE(SUM(amount), 0) FROM expenses) 
@@ -120,7 +123,7 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
                 COUNT(CASE WHEN payment_method = 'Cash' THEN 1 END) as total_cash_bills,
                 COUNT(CASE WHEN payment_method = 'Card' THEN 1 END) as total_card_bills
             FROM sales 
-            WHERE status = 'Complete'
+            WHERE status = 'Complete' $bFilter
         ");
         $allTimeData = $stmtAllTime->fetch();
 
@@ -142,7 +145,9 @@ elseif ($method === 'GET' && $action === 'get_enhanced_dashboard_summary') {
                 COALESCE(si.product_name, p.name) as name,
                 SUM(si.quantity) as total_qty
             FROM sale_items si
+            JOIN sales s ON si.sale_id = s.sale_id
             LEFT JOIN Products p ON si.product_id = p.product_id
+            WHERE s.status = 'Complete' $sFilter
             GROUP BY si.product_id
             ORDER BY total_qty DESC
             LIMIT 5

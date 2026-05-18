@@ -918,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saleData = {
             user_id: loggedInUserId,
+            branch_id: localStorage.getItem('branch_id') || null,
             total_amount: grandTotal,
             sale_date: new Date().toISOString().split('T')[0], 
             sale_time: new Date().toLocaleTimeString('en-GB'), 
@@ -1057,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const saleData = {
             user_id: loggedInUserId,
+            branch_id: localStorage.getItem('branch_id') || null,
             total_amount: grandTotal,
             sale_date: new Date().toISOString().split('T')[0],
             sale_time: new Date().toLocaleTimeString('en-GB'),

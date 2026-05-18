@@ -411,8 +411,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         const productModal = new bootstrap.Modal(document.getElementById('productModal'));
         const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
         
-        const userRole = localStorage.getItem('role') || 'Cashier'; 
-        const isCashier = (userRole.toLowerCase() === 'cashier');
+        const userRole = localStorage.getItem('role') || 'Branch_User'; 
+        const isCashier = (userRole.toLowerCase() !== 'admin'); // Admins get full access, others view-only
 
         let categories = [];
         let suppliers = [];

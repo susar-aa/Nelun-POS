@@ -383,32 +383,42 @@
                     <span>Returns</span>
                 </a>
 
-                <div class="menu-label">Admin</div>
+                <div id="adminMenuSection">
+                    <div class="menu-label">Admin</div>
 
-                <!-- Reports Submenu -->
-                <a class="nav-item-custom" data-bs-toggle="collapse" href="#reportsSubmenu" role="button" aria-expanded="false">
-                    <i class="bi bi-bar-chart-fill"></i>
-                    <span>Reports</span>
-                    <i class="bi bi-chevron-down chevron"></i>
-                </a>
-                <div class="collapse submenu" id="reportsSubmenu">
-                    <a class="nav-item-custom" data-link="reports.html">General Reports</a>
-                    <a class="nav-item-custom" data-link="report_history.html">End Day Reports</a>
+                    <!-- Reports Submenu -->
+                    <a class="nav-item-custom" data-bs-toggle="collapse" href="#reportsSubmenu" role="button" aria-expanded="false">
+                        <i class="bi bi-bar-chart-fill"></i>
+                        <span>Reports (Analytics)</span>
+                        <i class="bi bi-chevron-down chevron"></i>
+                    </a>
+                    <div class="collapse submenu" id="reportsSubmenu">
+                        <a class="nav-item-custom" data-link="overview.html">Dashboard Analytics</a>
+                        <a class="nav-item-custom" data-link="reports.html">General Reports</a>
+                        <a class="nav-item-custom" data-link="report_history.html">End Day Reports</a>
+                    </div>
+
+                    <a class="nav-item-custom" data-link="user-management.php">
+                        <i class="bi bi-people-fill"></i>
+                        <span>Users & Roles</span>
+                    </a>
+
+                    <a class="nav-item-custom" data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false">
+                        <i class="bi bi-gear-fill"></i>
+                        <span>Settings</span>
+                        <i class="bi bi-chevron-down chevron"></i>
+                    </a>
+                    <div class="collapse submenu" id="settingsSubmenu">
+                        <a class="nav-item-custom" data-link="banner-management.php">Banners & Screensaver</a>
+                    </div>
                 </div>
+            </div>
 
-                <a class="nav-item-custom" data-link="user-management.php">
-                    <i class="bi bi-people-fill"></i>
-                    <span>Users & Roles</span>
-                </a>
-
-                <a class="nav-item-custom" data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false">
-                    <i class="bi bi-gear-fill"></i>
-                    <span>Settings</span>
-                    <i class="bi bi-chevron-down chevron"></i>
-                </a>
-                <div class="collapse submenu" id="settingsSubmenu">
-                    <a class="nav-item-custom" data-link="banner-management.php">Banners & Screensaver</a>
-                </div>
+            <div class="px-3 mt-2" id="branchSelectorContainer" style="display: none;">
+                <label class="form-label mb-1" style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Viewing Branch Data</label>
+                <select class="form-select form-select-sm border shadow-sm mb-2 fw-bold text-primary" id="adminBranchSelector" style="border-radius: 8px; cursor: pointer; background-color: var(--hover-bg);">
+                    <option value="all">Global (All Branches)</option>
+                </select>
             </div>
 
             <div class="px-3 mb-3 mt-2">
@@ -482,6 +492,47 @@
             
             document.getElementById('displayUsername').textContent = username;
             document.getElementById('displayRole').textContent = role;
+
+            // --- Admin Branch Selector Logic ---
+            if (role === 'Admin') {
+                document.getElementById('branchSelectorContainer').style.display = 'block';
+                const branchSelector = document.getElementById('adminBranchSelector');
+                
+                // Initialize from storage or default
+                const savedBranch = localStorage.getItem('admin_selected_branch') || 'all';
+                
+                fetch('branch_api.php?action=get_branches')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            data.branches.forEach(b => {
+                                const option = new Option(b.branch_name, b.branch_id);
+                                if (savedBranch == b.branch_id) option.selected = true;
+                                branchSelector.add(option);
+                            });
+                        }
+                    });
+
+                branchSelector.addEventListener('change', (e) => {
+                    localStorage.setItem('admin_selected_branch', e.target.value);
+                    // Reload current iframe content by re-assigning src
+                    const currentSrc = contentFrame.contentWindow.location.href;
+                    contentFrame.src = currentSrc; 
+                });
+            } else {
+                // Hide admin menus completely for branch users
+                document.getElementById('adminMenuSection').style.display = 'none';
+                
+                // If not Admin, ensure it uses their assigned branch_id for analytics implicitly 
+                // by saving their own branch as the 'selected' filter to keep things uniform
+                const myBranch = localStorage.getItem('branch_id');
+                if(myBranch) localStorage.setItem('admin_selected_branch', myBranch);
+                
+                // Also default non-admins away from overview dashboard to POS or Sales History
+                contentFrame.src = 'sales_history.html';
+                // Remove 'active' state from Dashboard link since they are not on it
+                document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
+            }
 
             // --- 2. Sidebar Toggle (Mobile) ---
             menuToggle.addEventListener('click', (e) => {

@@ -134,12 +134,14 @@
 
     <!-- Logic -->
     <script>
+        // Silent schema init
+        fetch('branch_api.php?action=init_schema').catch(e => console.error(e));
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.querySelector('.btn-login');
             const alertBox = document.getElementById('alertContainer');
             
-            // Simulating API call - Replace with actual fetch to your auth endpoint
             const user = document.getElementById('username').value.trim();
             const pass = document.getElementById('password').value.trim();
 
@@ -152,28 +154,29 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Signing in...';
 
             try {
-                // Example Login Logic
-                // Replace 'api/login.php' with your actual endpoint
-                // const res = await fetch('api/login.php', { method: 'POST', body: ... });
+                const res = await fetch('branch_api.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
                 
-                // --- MOCK LOGIN FOR DEMO ---
-                // In your real system, remove this timeout and use fetch()
-                setTimeout(() => {
-                    if(user) { // Simple check
-                        localStorage.setItem('user_id', '1'); // Example ID
-                        localStorage.setItem('username', user);
-                        localStorage.setItem('role', 'Manager');
-                        
-                        showAlert('Login Successful!', 'success');
-                        setTimeout(() => window.location.href = 'dashboard.html', 1000);
-                    } else {
-                        throw new Error('Invalid credentials');
-                    }
-                }, 800);
-                // ---------------------------
-
+                if (data.success) {
+                    localStorage.setItem('user_id', data.user.user_id);
+                    localStorage.setItem('username', data.user.username);
+                    localStorage.setItem('role', data.user.role);
+                    localStorage.setItem('branch_id', data.user.branch_id);
+                    localStorage.setItem('branch_name', data.user.branch_name);
+                    
+                    showAlert('Login Successful!', 'success');
+                    setTimeout(() => window.location.href = 'dashboard.html', 500);
+                } else {
+                    showAlert(data.message || 'Invalid credentials.', 'danger');
+                    btn.disabled = false;
+                    btn.textContent = 'Sign In';
+                }
             } catch(err) {
-                showAlert('Invalid username or password.', 'danger');
+                showAlert('Network error. Cannot connect to API.', 'danger');
                 btn.disabled = false;
                 btn.textContent = 'Sign In';
             }
