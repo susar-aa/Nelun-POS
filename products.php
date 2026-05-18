@@ -127,10 +127,17 @@ elseif ($action === 'searchProducts') {
         echo json_encode(["success" => true, "products" => []]);
         exit();
     }
+    $supplier_id = $_GET['supplier_id'] ?? null;
     try {
-        $stmt = $pdo->prepare("SELECT product_id, name, product_code, price, quantity, item_code FROM Products WHERE status = 'Active' AND (name LIKE ? OR product_code LIKE ? OR item_code LIKE ?) LIMIT 20");
-        $searchTerm = '%' . $search_query . '%';
-        $stmt->execute([$searchTerm, $searchTerm, $searchTerm]);
+        $sql = "SELECT product_id, name, product_code, price, cost, quantity, item_code FROM Products WHERE status = 'Active' AND (name LIKE ? OR product_code LIKE ? OR item_code LIKE ?)";
+        $params = ['%' . $search_query . '%', '%' . $search_query . '%', '%' . $search_query . '%'];
+        if ($supplier_id) {
+            $sql .= " AND supplier_id = ?";
+            $params[] = $supplier_id;
+        }
+        $sql .= " LIMIT 20";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(["success" => true, "products" => $products]);
     } catch (PDOException $e) {

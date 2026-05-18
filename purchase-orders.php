@@ -178,6 +178,44 @@ if ($is_api) {
         exit();
     }
 
+    // 5. ANALYZE SALES FOR PO GENERATION
+    if ($action === 'analyzeSalesForPO') {
+        $supplier_id = $input['supplier_id'] ?? null;
+        $start_date = $input['start_date'] ?? null;
+        $end_date = $input['end_date'] ?? null;
+        $buffer = (int)($input['buffer'] ?? 0);
+
+        if (!$supplier_id || !$start_date || !$end_date) {
+            echo json_encode(["success" => false, "message" => "Missing required parameters."]);
+            exit();
+        }
+
+        try {
+            $sql = "
+                SELECT p.product_id, p.name as product_name, p.product_code, p.cost as cost_price, 
+                       SUM(si.quantity) as sold_qty
+                FROM sales_items si
+                JOIN sales s ON si.sale_id = s.sale_id
+                JOIN Products p ON si.product_id = p.product_id
+                WHERE p.supplier_id = ? AND DATE(s.created_at) BETWEEN ? AND ?
+                GROUP BY p.product_id
+                HAVING sold_qty > 0
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$supplier_id, $start_date, $end_date]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($results as &$item) {
+                $item['quantity'] = (int)$item['sold_qty'] + $buffer;
+            }
+
+            echo json_encode(["success" => true, "items" => $results]);
+        } catch (PDOException $e) {
+            echo json_encode(["success" => false, "message" => $e->getMessage()]);
+        }
+        exit();
+    }
+
     // 4. CANCEL OR DELETE PO
     if ($action === 'updatePOStatus') {
         $po_id = $input['po_id'] ?? null;
@@ -255,7 +293,7 @@ if ($is_api) {
                     <h2 class="fw-bold mb-0">Purchase Orders</h2>
                     <p class="text-muted small mb-0">Draft, issue, and manage procurement requests</p>
                 </div>
-                <button class="btn btn-primary shadow-sm px-4 rounded-pill" onclick="showCreateScreen()">
+                <button class="btn btn-primary shadow-sm px-4 rounded-pill" onclick="openPOOptionsModal()">
                     <i class="bi bi-file-earmark-plus"></i> New PO
                 </button>
             </div>
@@ -326,9 +364,14 @@ if ($is_api) {
                     <h2 class="fw-bold mb-0" id="createTitle">Create Purchase Order</h2>
                     <p class="text-muted small mb-0">Draft a new request for supplier replenishment</p>
                 </div>
-                <button class="btn btn-light border px-4 rounded-pill" onclick="showHistoryScreen()">
-                    <i class="bi bi-arrow-left"></i> Back to History
-                </button>
+                <div>
+                    <button class="btn btn-outline-dark border px-4 rounded-pill me-2 d-none" id="btnDownloadPDF" onclick="downloadPOPDF()">
+                        <i class="bi bi-file-pdf-fill text-danger"></i> Download PDF
+                    </button>
+                    <button class="btn btn-light border px-4 rounded-pill" onclick="showHistoryScreen()">
+                        <i class="bi bi-arrow-left"></i> Back to History
+                    </button>
+                </div>
             </div>
 
             <div class="row g-4">
@@ -409,6 +452,77 @@ if ($is_api) {
 
     </div>
 
+    <!-- PO Options Modal -->
+    <div class="modal fade" id="poOptionsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius:20px">
+                <div class="modal-header border-0 p-4 pb-0">
+                    <h5 class="modal-title fw-bold">Create Purchase Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="text-muted mb-4">How would you like to build this purchase order?</p>
+                    <div class="d-grid gap-3">
+                        <button class="btn btn-outline-primary py-3 fw-bold rounded-3" onclick="poOptionsModal.hide(); showCreateScreen()">
+                            <i class="bi bi-pencil-square fs-4 d-block mb-1"></i> Create Manually
+                        </button>
+                        <button class="btn btn-primary py-3 fw-bold rounded-3" onclick="openAnalyzeModal()">
+                            <i class="bi bi-bar-chart-fill fs-4 d-block mb-1"></i> Generate by Analyzing Sales
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analyze Sales Modal -->
+    <div class="modal fade" id="analyzeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow" style="border-radius:20px">
+                <div class="modal-header border-0 p-4 pb-0">
+                    <h5 class="modal-title fw-bold">Analyze Sales Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="analyzeForm">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Select Supplier</label>
+                            <select id="analyzeSupplier" class="form-select" required>
+                                <option value="">-- Choose Supplier --</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label small fw-bold">Start Date</label>
+                                <input type="date" id="analyzeStart" class="form-control" required>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small fw-bold">End Date</label>
+                                <input type="date" id="analyzeEnd" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Date Preset</label>
+                            <select class="form-select form-select-sm" onchange="applyDatePreset(this.value)">
+                                <option value="">Custom Range</option>
+                                <option value="7">Last 7 Days</option>
+                                <option value="30">Last Month (30 Days)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Buffer Stock to Add (Qty)</label>
+                            <input type="number" id="analyzeBuffer" class="form-control" value="0" min="0">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="analyzeSales()">Analyze & Generate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- PO Details Modal -->
     <div class="modal fade" id="poDetailsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
@@ -468,6 +582,8 @@ if ($is_api) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const poDetailsModal = new bootstrap.Modal(document.getElementById('poDetailsModal'));
+        const poOptionsModal = new bootstrap.Modal(document.getElementById('poOptionsModal'));
+        const analyzeModal = new bootstrap.Modal(document.getElementById('analyzeModal'));
         
         let suppliers = [];
         let purchaseOrders = [];
@@ -489,9 +605,11 @@ if ($is_api) {
                     const filterDropdown = document.getElementById('filterSupplier');
                     const formDropdown = document.getElementById('inputSupplier');
                     
+                    const analyzeDropdown = document.getElementById('analyzeSupplier');
                     suppliers.forEach(s => {
                         filterDropdown.add(new Option(s.name, s.supplier_id));
                         formDropdown.add(new Option(s.name, s.supplier_id));
+                        analyzeDropdown.add(new Option(s.name, s.supplier_id));
                     });
                 }
             } catch(e) { console.error('Error loading config data.'); }
@@ -607,9 +725,78 @@ if ($is_api) {
             document.getElementById('inputId').value = '';
             document.getElementById('createTitle').textContent = "Create Purchase Order";
             document.getElementById('inputStatus').value = "Draft";
+            document.getElementById('btnDownloadPDF').classList.add('d-none');
             poItems = [];
             recalculatePOTotal();
             renderPOItems();
+        }
+
+        function openPOOptionsModal() {
+            poOptionsModal.show();
+        }
+
+        function openAnalyzeModal() {
+            poOptionsModal.hide();
+            document.getElementById('analyzeForm').reset();
+            const lastWeek = new Date();
+            lastWeek.setDate(lastWeek.getDate() - 7);
+            document.getElementById('analyzeStart').value = lastWeek.toISOString().split('T')[0];
+            analyzeModal.show();
+        }
+
+        function applyDatePreset(days) {
+            if(!days) return;
+            const end = new Date();
+            const start = new Date();
+            start.setDate(end.getDate() - parseInt(days));
+            document.getElementById('analyzeEnd').value = end.toISOString().split('T')[0];
+            document.getElementById('analyzeStart').value = start.toISOString().split('T')[0];
+        }
+
+        async function analyzeSales() {
+            const supplier = document.getElementById('analyzeSupplier').value;
+            const start = document.getElementById('analyzeStart').value;
+            const end = document.getElementById('analyzeEnd').value;
+            const buffer = document.getElementById('analyzeBuffer').value;
+
+            if(!supplier || !start || !end) {
+                showAlert('Please fill all required fields.', 'warning');
+                return;
+            }
+
+            try {
+                const res = await fetch('purchase-orders.php?action=analyzeSalesForPO', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ supplier_id: supplier, start_date: start, end_date: end, buffer: buffer })
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    analyzeModal.hide();
+                    showCreateScreen();
+                    document.getElementById('inputSupplier').value = supplier;
+                    
+                    poItems = [];
+                    if(data.items.length === 0) {
+                        showAlert('No sales data found for this supplier in the selected date range.', 'warning');
+                    } else {
+                        data.items.forEach(item => {
+                            poItems.push({
+                                product_id: item.product_id,
+                                product_name: item.product_name,
+                                product_code: item.product_code,
+                                cost_price: parseFloat(item.cost_price),
+                                quantity: item.quantity,
+                                sold_qty: item.sold_qty
+                            });
+                        });
+                        showAlert(`Generated PO based on ${data.items.length} products sold.`, 'success');
+                    }
+                    renderPOItems();
+                    recalculatePOTotal();
+                } else { showAlert(data.message, 'danger'); }
+            } catch(e) { showAlert('Error analyzing sales data.', 'danger'); }
         }
 
         function showHistoryScreen() {
@@ -631,6 +818,7 @@ if ($is_api) {
                     document.getElementById('inputExpectedDate').value = po.expected_date || '';
                     document.getElementById('inputStatus').value = po.status;
                     document.getElementById('createTitle').textContent = `Edit Purchase Order (${po.po_number})`;
+                    document.getElementById('btnDownloadPDF').classList.remove('d-none');
 
                     poItems = data.items.map(item => ({
                         product_id: item.product_id,
@@ -656,7 +844,8 @@ if ($is_api) {
             }
 
             try {
-                const res = await fetch(`products.php?action=searchProducts&search=${encodeURIComponent(query)}`);
+                const supplier_id = document.getElementById('inputSupplier').value;
+                const res = await fetch(`products.php?action=searchProducts&search=${encodeURIComponent(query)}&supplier_id=${supplier_id}`);
                 const data = await res.json();
                 
                 if(data.success && data.products.length > 0) {
@@ -692,7 +881,7 @@ if ($is_api) {
                     product_id: product.product_id,
                     product_name: product.name,
                     product_code: product.product_code,
-                    cost_price: 0.00, // Default to 0, user enters it
+                    cost_price: parseFloat(product.cost) || 0.00,
                     quantity: 1
                 });
             }
@@ -714,7 +903,11 @@ if ($is_api) {
                 const subtotal = item.cost_price * item.quantity;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="fw-semibold text-dark">${item.product_name}<br><small class="text-muted">${item.product_code}</small></td>
+                    <td class="fw-semibold text-dark">
+                        ${item.product_name}<br>
+                        <small class="text-muted">${item.product_code}</small>
+                        ${item.sold_qty ? `<span class="badge bg-info ms-2">Analyzed Sold: ${item.sold_qty}</span>` : ''}
+                    </td>
                     <td>
                         <input type="number" class="form-control form-control-sm text-end" value="${item.cost_price.toFixed(2)}" step="0.01" min="0.00" onchange="updateLineCost(${index}, this.value)">
                     </td>
@@ -822,6 +1015,23 @@ if ($is_api) {
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            function downloadPOPDF() {
+                const poId = document.getElementById('inputId').value;
+                if(!poId) {
+                    showAlert('Please save the PO first to generate a PDF.', 'warning');
+                    return;
+                }
+                viewDetails(poId);
+                setTimeout(() => {
+                    const printContent = document.getElementById('modalPrintArea').innerHTML;
+                    const printWin = window.open('', '_blank');
+                    printWin.document.write(`<html><head><title>Nelun POS - Purchase Order</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body style="padding:40px;"><h2>Purchase Order</h2><hr>${printContent}</body></html>`);
+                    printWin.document.close();
+                    printWin.focus();
+                    setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+                }, 600);
+            }
+
             loadConfig();
             fetchPOs();
         });
