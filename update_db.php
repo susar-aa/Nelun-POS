@@ -142,7 +142,24 @@ $queries = [
     // 12. Add cost_price and batch_id to sale_items table
     "ALTER TABLE sale_items ADD COLUMN cost_price DECIMAL(10,2) NULL;",
     "ALTER TABLE sale_items ADD COLUMN batch_id INT NULL;",
-    "ALTER TABLE sale_items ADD CONSTRAINT fk_sale_items_batch FOREIGN KEY (batch_id) REFERENCES product_batches(batch_id) ON DELETE SET NULL;"
+    "ALTER TABLE sale_items ADD CONSTRAINT fk_sale_items_batch FOREIGN KEY (batch_id) REFERENCES product_batches(batch_id) ON DELETE SET NULL;",
+
+    // 13. Branch Inventory Table (separate stock per branch)
+    "CREATE TABLE IF NOT EXISTS branch_inventory (
+        inventory_id INT AUTO_INCREMENT PRIMARY KEY,
+        branch_id INT NOT NULL,
+        product_id INT NOT NULL,
+        quantity INT NOT NULL DEFAULT 0,
+        reorder_level INT NOT NULL DEFAULT 10,
+        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_branch_product (branch_id, product_id),
+        FOREIGN KEY (branch_id) REFERENCES branches(branch_id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+
+    // 14. Add branch_id to product_batches (track which branch received the stock)
+    "ALTER TABLE product_batches ADD COLUMN branch_id INT NULL;",
+    "ALTER TABLE product_batches ADD CONSTRAINT fk_batch_branch FOREIGN KEY (branch_id) REFERENCES branches(branch_id) ON DELETE SET NULL;"
 ];
 
 foreach ($queries as $index => $sql) {

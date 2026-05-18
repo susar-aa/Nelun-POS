@@ -490,8 +490,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             const sup = document.getElementById('supFilter').value;
 
             try {
-                // Pass filters to API
-                const url = `products.php?action=getProductsPaginated&page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}&status=${status}&stock=${stock}&category_id=${cat}&supplier_id=${sup}`;
+                // Pass filters + branch_id to API (branch_id ensures branch-specific stock is shown)
+                const branchId = localStorage.getItem('admin_selected_branch') || 'all';
+                const branchParam = (branchId !== 'all') ? `&branch_id=${branchId}` : '';
+                const url = `products.php?action=getProductsPaginated&page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}&status=${status}&stock=${stock}&category_id=${cat}&supplier_id=${sup}${branchParam}`;
                 const res = await fetch(url);
                 const data = await res.json();
                 

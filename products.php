@@ -10,10 +10,24 @@ require_once 'db_connection.php';
 $action = $_GET['action'] ?? null;
 $search_query = $_GET['search'] ?? '';
 
-// --- 1. GET ALL PRODUCTS (Strictly Active Only - For POS Local Cache) ---
+// --- 1. GET ALL PRODUCTS (Active Only - For POS Local Cache, branch-aware) ---
 if ($action === 'getAllProducts') {
+    $branch_id = isset($_GET['branch_id']) ? intval($_GET['branch_id']) : null;
     try {
-        $stmt = $pdo->query("SELECT product_id, name, item_code, product_code, quantity, price, cost FROM Products WHERE status = 'Active' ORDER BY name ASC");
+        if ($branch_id) {
+            $stmt = $pdo->prepare("
+                SELECT p.product_id, p.name, p.item_code, p.product_code,
+                       COALESCE(bi.quantity, p.quantity) AS quantity,
+                       p.price, p.cost
+                FROM Products p
+                LEFT JOIN branch_inventory bi ON bi.product_id = p.product_id AND bi.branch_id = ?
+                WHERE p.status = 'Active'
+                ORDER BY p.name ASC
+            ");
+            $stmt->execute([$branch_id]);
+        } else {
+            $stmt = $pdo->query("SELECT product_id, name, item_code, product_code, quantity, price, cost FROM Products WHERE status = 'Active' ORDER BY name ASC");
+        }
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(["success" => true, "products" => $products]);
     } catch (PDOException $e) {
@@ -36,27 +50,46 @@ elseif ($action === 'getProductDetails') {
         echo json_encode(["success" => false, "message" => "Error: " . $e->getMessage()]);
     }
 }
-// --- 3. GET PAGINATED PRODUCTS (UPGRADED: Supports Filters for Admin Panel) ---
+// --- 3. GET PAGINATED PRODUCTS (UPGRADED: Supports Filters + Branch Inventory) ---
 elseif ($action === 'getProductsPaginated') {
     try {
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-        
+        $branch_id = isset($_GET['branch_id']) ? intval($_GET['branch_id']) : null;
+
         // NEW FILTERS
-        $statusFilter = $_GET['status'] ?? 'Active'; // Default to Active if not specified
-        $stockFilter = $_GET['stock'] ?? 'All';      // 'Low', 'Out', 'All'
+        $statusFilter   = $_GET['status'] ?? 'Active';
+        $stockFilter    = $_GET['stock'] ?? 'All';
         $categoryFilter = $_GET['category_id'] ?? 'All';
         $supplierFilter = $_GET['supplier_id'] ?? 'All';
 
         $offset = ($page - 1) * $limit;
 
+        // Use branch_inventory quantity if branch_id provided, else global
+        $qtyExpr = $branch_id
+            ? "COALESCE(bi.quantity, p.quantity)"
+            : "p.quantity";
+
+        $joinClause = $branch_id
+            ? "LEFT JOIN branch_inventory bi ON bi.product_id = p.product_id AND bi.branch_id = $branch_id"
+            : "";
+
         // Base SQL
-        $sql = "SELECT p.product_id, p.name, p.item_code, p.product_code, p.quantity, p.price, p.cost, p.status, p.reorder_level, p.category_id, p.supplier_id, c.name as category_name, s.name as supplier_name FROM Products p LEFT JOIN categories c ON p.category_id = c.category_id LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id WHERE 1=1";
-        $countSql = "SELECT COUNT(*) as total FROM Products p WHERE 1=1";
+        $sql = "SELECT p.product_id, p.name, p.item_code, p.product_code,
+                       $qtyExpr AS quantity,
+                       p.price, p.cost, p.status, p.reorder_level, p.category_id, p.supplier_id,
+                       c.name as category_name, s.name as supplier_name
+                FROM Products p
+                LEFT JOIN categories c ON p.category_id = c.category_id
+                LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+                $joinClause
+                WHERE 1=1";
+
+        $countSql = "SELECT COUNT(*) as total FROM Products p $joinClause WHERE 1=1";
         $params = [];
 
-        // A. Apply Search
+        // A. Search
         if (!empty($search)) {
             $term = "%$search%";
             $clause = " AND (p.name LIKE ? OR p.product_code LIKE ? OR p.item_code LIKE ?)";
@@ -65,30 +98,30 @@ elseif ($action === 'getProductsPaginated') {
             $params[] = $term; $params[] = $term; $params[] = $term;
         }
 
-        // B. Apply Status Filter
+        // B. Status Filter
         if ($statusFilter !== 'All') {
             $sql .= " AND p.status = ?";
             $countSql .= " AND p.status = ?";
             $params[] = $statusFilter;
         }
 
-        // C. Apply Stock Filter
+        // C. Stock Filter (uses branch quantity if available)
         if ($stockFilter === 'Low') {
-            $sql .= " AND p.quantity <= 5 AND p.quantity > 0";
-            $countSql .= " AND p.quantity <= 5 AND p.quantity > 0";
+            $sql .= " AND $qtyExpr <= COALESCE(p.reorder_level, 10) AND $qtyExpr > 0";
+            $countSql .= " AND $qtyExpr <= COALESCE(p.reorder_level, 10) AND $qtyExpr > 0";
         } elseif ($stockFilter === 'Out') {
-            $sql .= " AND p.quantity = 0";
-            $countSql .= " AND p.quantity = 0";
+            $sql .= " AND $qtyExpr = 0";
+            $countSql .= " AND $qtyExpr = 0";
         }
 
-        // D. Apply Category Filter
+        // D. Category Filter
         if ($categoryFilter !== 'All') {
             $sql .= " AND p.category_id = ?";
             $countSql .= " AND p.category_id = ?";
             $params[] = $categoryFilter;
         }
 
-        // E. Apply Supplier Filter
+        // E. Supplier Filter
         if ($supplierFilter !== 'All') {
             $sql .= " AND p.supplier_id = ?";
             $countSql .= " AND p.supplier_id = ?";
@@ -98,21 +131,19 @@ elseif ($action === 'getProductsPaginated') {
         // F. Sorting & Limits
         $sql .= " ORDER BY p.product_id DESC LIMIT $limit OFFSET $offset";
 
-        // Execute Count
         $stmtCount = $pdo->prepare($countSql);
         $stmtCount->execute($params);
         $totalRecords = $stmtCount->fetchColumn();
 
-        // Execute Data Fetch
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
-            "success" => true, 
-            "products" => $products,
+            "success"      => true,
+            "products"     => $products,
             "total_records" => $totalRecords,
-            "total_pages" => ceil($totalRecords / $limit),
+            "total_pages"  => ceil($totalRecords / $limit),
             "current_page" => $page
         ]);
 
