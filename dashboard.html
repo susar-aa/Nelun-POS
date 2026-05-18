@@ -468,8 +468,8 @@
                 </button>
             </nav>
 
-            <!-- Iframe Content -->
-            <iframe id="contentFrame" src="overview.html" title="Main Content"></iframe>
+            <!-- Iframe Content: starts blank, JS sets correct page based on role -->
+            <iframe id="contentFrame" src="about:blank" title="Main Content"></iframe>
         </main>
     </div>
 
@@ -504,55 +504,68 @@
             document.getElementById('displayUsername').textContent = username;
             document.getElementById('displayRole').textContent = role;
 
-            // ============================================================
+            // ================================================================
             // ROLE-BASED ACCESS CONTROL
-            // ============================================================
+            // ================================================================
             const isAdmin = role.toLowerCase() === 'admin' || role.toLowerCase() === 'manager';
 
             if (isAdmin) {
-                // --- ADMIN: Show branch switcher dropdown ---
+                // ---- ADMIN: Full access + branch switcher dropdown ----
                 document.getElementById('branchSelectorContainer').style.display = 'block';
                 const branchSelector = document.getElementById('adminBranchSelector');
-                const savedBranch = localStorage.getItem('admin_selected_branch') || 'all';
 
+                // Default to 'all' if no prior selection
+                const savedBranch = localStorage.getItem('admin_selected_branch') || 'all';
+                if (!localStorage.getItem('admin_selected_branch')) {
+                    localStorage.setItem('admin_selected_branch', 'all');
+                }
+
+                // Populate branch dropdown from API
                 fetch('branch_api.php?action=get_branches')
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
                             data.branches.forEach(b => {
                                 const option = new Option(b.branch_name, b.branch_id);
-                                if (savedBranch == b.branch_id) option.selected = true;
+                                if (String(savedBranch) === String(b.branch_id)) option.selected = true;
                                 branchSelector.add(option);
                             });
                         }
                     });
 
+                // When admin changes branch — reload iframe
                 branchSelector.addEventListener('change', (e) => {
                     localStorage.setItem('admin_selected_branch', e.target.value);
                     const currentSrc = contentFrame.contentWindow.location.href;
-                    contentFrame.src = currentSrc;
+                    contentFrame.src = (currentSrc && currentSrc !== 'about:blank') ? currentSrc : 'overview.html';
                 });
 
-                // Admin lands on analytics overview
+                // Admins land on analytics dashboard
                 contentFrame.src = 'overview.html';
 
             } else {
-                // --- STAFF: Lock everything down ---
+                // ---- STAFF / BRANCH USER: Locked to assigned branch only ----
 
-                // 1. Hide the entire Admin section (analytics, users, settings)
-                document.getElementById('adminMenuSection').style.display = 'none';
+                // 1. Hide ALL admin-only menu sections
+                const adminSection = document.getElementById('adminMenuSection');
+                if (adminSection) adminSection.style.display = 'none';
 
-                // 2. Show read-only branch badge (NO dropdown)
-                const myBranchId = localStorage.getItem('branch_id');
+                // 2. Show read-only branch badge — NO dropdown, NO way to change
+                const myBranchId   = localStorage.getItem('branch_id')   || '';
                 const myBranchName = localStorage.getItem('branch_name') || 'Assigned Branch';
+
                 document.getElementById('staffBranchIndicator').style.display = 'block';
                 document.getElementById('staffBranchName').textContent = myBranchName;
 
-                // 3. Force admin_selected_branch to THEIR branch so all API calls are filtered
-                if (myBranchId) localStorage.setItem('admin_selected_branch', myBranchId);
+                // 3. CRITICAL: Lock admin_selected_branch to their DB-assigned branch
+                //    This key is read by every API fetch (products, sales, reports)
+                //    so all data is automatically scoped to their branch.
+                localStorage.setItem('admin_selected_branch', myBranchId);
 
-                // 4. Redirect away from admin analytics to sales history
+                // 4. Staff land on Sales History of their branch — NOT overview/analytics
                 contentFrame.src = 'sales_history.html';
+
+                // Clear any active states (no nav item pre-selected)
                 document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
             }
 
@@ -594,10 +607,10 @@
             // --- 4. Logout Logic ---
             document.getElementById('userProfileBtn').addEventListener('click', () => {
                 if(confirm('Log out of Nelun POS?')) {
-                    localStorage.removeItem('user_id');
-                    localStorage.removeItem('username');
-                    localStorage.removeItem('role');
-                    window.location.href = 'login.html'; // Adjust login page URL if needed
+                    // Clear all session keys so next user starts clean
+                    ['user_id','username','role','branch_id','branch_name','admin_selected_branch']
+                        .forEach(k => localStorage.removeItem(k));
+                    window.location.href = 'login.html';
                 }
             });
 

@@ -84,7 +84,7 @@ if ($action === 'login') {
 
     try {
         $stmt = $pdo->prepare("
-            SELECT u.*, b.branch_name 
+            SELECT u.user_id, u.username, u.password_hash, u.role, u.status, u.branch_id, b.branch_name 
             FROM users u 
             LEFT JOIN branches b ON u.branch_id = b.branch_id 
             WHERE u.username = ?
@@ -93,18 +93,29 @@ if ($action === 'login') {
         $u = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($u) {
-            // Support simple hash or clear text if old DB
-            $db_pass = $u['password_hash'] ?? ($u['password'] ?? '');
-            $valid = password_verify($pass, $db_pass) || $pass === $db_pass || $pass === '1234'; 
+            // Check if account is active
+            if (isset($u['status']) && strtolower($u['status']) === 'inactive') {
+                echo json_encode(['success' => false, 'message' => 'Your account has been disabled. Contact your administrator.']);
+                exit;
+            }
+
+            // Verify password (proper hash check only — no backdoors)
+            $db_pass = $u['password_hash'] ?? '';
+            $valid = password_verify($pass, $db_pass);
+            
+            // Fallback: allow plain-text match ONLY for old non-hashed passwords
+            if (!$valid && !str_starts_with($db_pass, '$2')) {
+                $valid = ($pass === $db_pass);
+            }
             
             if ($valid) {
                 echo json_encode([
                     'success' => true, 
                     'user' => [
-                        'user_id' => $u['user_id'],
-                        'username' => $u['username'],
-                        'role' => $u['role'],
-                        'branch_id' => $u['branch_id'],
+                        'user_id'     => $u['user_id'],
+                        'username'    => $u['username'],
+                        'role'        => $u['role'],
+                        'branch_id'   => $u['branch_id'],
                         'branch_name' => $u['branch_name'] ?? 'All Branches'
                     ]
                 ]);
