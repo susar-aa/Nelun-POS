@@ -4,7 +4,7 @@
 // AND handles all its backend API requests (GET, ADD, UPDATE, DELETE)
 
 // Set headers for JSON response and CORS, if this is an API request
-$is_api_request = (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) || (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false);
+$is_api_request = (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) || (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) || isset($_GET['action']);
 
 if ($is_api_request) {
     header('Content-Type: application/json');
@@ -20,12 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // --- DATABASE CONNECTION ---
-// UPDATED CREDENTIALS FOR PRODUCTION
 $host = 'localhost';
 $port = '3306';
 $dbname = 'Nelun_db';
-$username_db = 'suzxlabs'; // Updated username
-$password_db = 'Susara@200611003614'; // Updated password
+$username_db = 'suzxlabs'; 
+$password_db = 'Susara@200611003614'; 
 
 $conn = null;
 
@@ -33,505 +32,422 @@ try {
     $conn = new mysqli($host, $username_db, $password_db, $dbname, $port);
     if ($conn->connect_error) {
         if ($is_api_request) {
-            echo json_encode(['success' => false, 'message' => 'Database connection error: ' . $conn->connect_error]);
+            echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $conn->connect_error]);
             exit();
-        } else {
-            die("<h1>Database Connection Error</h1><p>Please try again later. (Error: " . $conn->connect_error . ")</p>");
         }
+        die("Connection failed: " . $conn->connect_error);
     }
 } catch (Exception $e) {
     if ($is_api_request) {
         echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
         exit();
-    } else {
-        die("<h1>Server Error</h1><p>An unexpected error occurred.</p>");
     }
+    die("Server error: " . $e->getMessage());
 }
 
-// --- PHP API Logic ---
+// --- API LOGIC (Runs only if requested via fetch) ---
 if ($is_api_request) {
-    $response = ['success' => false, 'message' => 'Invalid API request.'];
-    $input = file_get_contents('php://input');
-    $data = json_decode($input, true);
+    $method = $_SERVER['REQUEST_METHOD'];
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    $action = $_GET['action'] ?? $input['action'] ?? null;
 
-    $action = $_SERVER['REQUEST_METHOD'];
-    if ($action === 'POST' && isset($data['action'])) {
-        $action = $data['action'];
+    // 1. GET ALL USERS
+    if ($method === 'GET' && $action === 'get_users') {
+        $sql = "SELECT u.user_id, u.username, u.role, u.branch_id, b.branch_name, u.created_at 
+                FROM users u 
+                LEFT JOIN branches b ON u.branch_id = b.branch_id 
+                ORDER BY u.user_id ASC";
+        $result = $conn->query($sql);
+        $users = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $users[] = $row;
+            }
+        }
+        echo json_encode(['success' => true, 'users' => $users]);
+        exit();
     }
 
-    switch ($action) {
-        case 'GET':
-            try {
-                $sql = "SELECT u.user_id, u.username, u.role, u.status, u.created_at, u.branch_id, b.branch_name 
-                        FROM users u 
-                        LEFT JOIN branches b ON u.branch_id = b.branch_id 
-                        ORDER BY u.user_id ASC";
-                $result = $conn->query($sql);
-                if ($result) {
-                    $users = [];
-                    while ($row = $result->fetch_assoc()) {
-                        $users[] = $row;
-                    }
-                    $response = ['success' => true, 'users' => $users];
-                } else {
-                    $response = ['success' => false, 'message' => 'Failed to retrieve users: ' . $conn->error];
-                }
-            } catch (Exception $e) {
-                $response = ['success' => false, 'message' => 'Server error during user fetch: ' . $e->getMessage()];
+    // 2. GET BRANCHES (For Dropdown)
+    if ($method === 'GET' && $action === 'get_branches') {
+        $sql = "SELECT branch_id, branch_name FROM branches ORDER BY branch_id ASC";
+        $result = $conn->query($sql);
+        $branches = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $branches[] = $row;
             }
-            break;
-
-        case 'add_user':
-            $username = $data['username'] ?? '';
-            $password = $data['password'] ?? '';
-            $role = $data['role'] ?? 'Branch_User';
-            $status = $data['status'] ?? 'Active';
-            $branch_id = !empty($data['branch_id']) ? intval($data['branch_id']) : null;
-
-            // Map lowercase role choices to production ENUM values
-            $role_mapped = (strtolower($role) === 'admin') ? 'Admin' : 'Branch_User';
-
-            if (empty($username) || empty($password)) {
-                $response = ['success' => false, 'message' => 'Username and password are required.'];
-                break;
-            }
-
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
-
-            try {
-                $stmt = $conn->prepare("SELECT user_id FROM users WHERE username = ?");
-                $stmt->bind_param("s", $username);
-                $stmt->execute();
-                $stmt->store_result();
-                if ($stmt->num_rows > 0) {
-                    $response = ['success' => false, 'message' => 'Username already exists.'];
-                    $stmt->close();
-                    break;
-                }
-                $stmt->close();
-
-                $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, status, branch_id) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssssi", $username, $password_hash, $role_mapped, $status, $branch_id);
-
-                if ($stmt->execute()) {
-                    $response = ['success' => true, 'message' => 'User added successfully!'];
-                } else {
-                    $response = ['success' => false, 'message' => 'Failed to add user: ' . $stmt->error];
-                }
-                $stmt->close();
-
-            } catch (Exception $e) {
-                $response = ['success' => false, 'message' => 'Server error during user add: ' . $e->getMessage()];
-            }
-            break;
-
-        case 'update_user':
-            $user_id = $data['user_id'] ?? null;
-            $username = $data['username'] ?? '';
-            $password = $data['password'] ?? null;
-            $role = $data['role'] ?? 'Branch_User';
-            $status = $data['status'] ?? 'Active';
-            $branch_id = !empty($data['branch_id']) ? intval($data['branch_id']) : null;
-
-            // Map lowercase role choices to production ENUM values
-            $role_mapped = (strtolower($role) === 'admin') ? 'Admin' : 'Branch_User';
-
-            if (empty($user_id) || empty($username)) {
-                $response = ['success' => false, 'message' => 'User ID and username required.'];
-                break;
-            }
-
-            try {
-                $sql = "UPDATE users SET username = ?, role = ?, status = ?, branch_id = ?";
-                $params = [$username, $role_mapped, $status, $branch_id];
-                $types = "sssi";
-
-                if ($password !== null && $password !== '') {
-                    $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                    $sql .= ", password_hash = ?";
-                    $params[] = $password_hash;
-                    $types .= "s";
-                }
-
-                $sql .= " WHERE user_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
-
-                $stmt = $conn->prepare($sql);
-                
-                // Construct parameters array with references
-                $bind_params = array();
-                $bind_params[] = &$types;
-                for ($i = 0; $i < count($params); $i++) {
-                    $bind_params[] = &$params[$i];
-                }
-                
-                call_user_func_array([$stmt, 'bind_param'], $bind_params);
-
-                if ($stmt->execute()) {
-                    $response = ['success' => true, 'message' => 'User updated successfully!'];
-                } else {
-                    $response = ['success' => false, 'message' => 'Failed to update user: ' . $stmt->error];
-                }
-                $stmt->close();
-            } catch (Exception $e) {
-                $response = ['success' => false, 'message' => 'Server error during update: ' . $e->getMessage()];
-            }
-            break;
-
-        case 'delete_user':
-            $user_id = $data['user_id'] ?? null;
-            if (empty($user_id)) {
-                $response = ['success' => false, 'message' => 'User ID required.'];
-                break;
-            }
-            try {
-                $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
-                $stmt->bind_param("i", $user_id);
-                if ($stmt->execute()) {
-                    $response = ['success' => true, 'message' => 'User deleted successfully!'];
-                } else {
-                    $response = ['success' => false, 'message' => 'Failed to delete user.'];
-                }
-                $stmt->close();
-            } catch (Exception $e) {
-                $response = ['success' => false, 'message' => 'Server error during delete.'];
-            }
-            break;
-
-        default:
-            $response = ['success' => false, 'message' => 'Unknown action.'];
-            break;
+        }
+        echo json_encode(['success' => true, 'branches' => $branches]);
+        exit();
     }
 
-    echo json_encode($response);
-    $conn->close();
-    exit();
+    // 3. ADD NEW USER
+    if ($method === 'POST' && $action === 'add_user') {
+        $user = trim($input['username'] ?? '');
+        $pass = trim($input['password'] ?? '');
+        $role = $input['role'] ?? 'Cashier';
+        $branch = !empty($input['branch_id']) ? intval($input['branch_id']) : null;
+
+        if (empty($user) || empty($pass)) {
+            echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
+            exit();
+        }
+
+        // Branch Isolation Logic
+        if ($role === 'Admin') {
+            $branch = 1; // Admins default to main structural branch
+        }
+
+        $hash = password_hash($pass, PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("sssi", $user, $hash, $role, $branch);
+        
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'User created successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to create user. Username may already exist.']);
+        }
+        $stmt->close();
+        exit();
+    }
+
+    // 4. UPDATE EXISTING USER
+    if ($method === 'POST' && $action === 'update_user') {
+        $uid = intval($input['user_id'] ?? 0);
+        $user = trim($input['username'] ?? '');
+        $pass = trim($input['password'] ?? '');
+        $role = $input['role'] ?? 'Cashier';
+        $branch = !empty($input['branch_id']) ? intval($input['branch_id']) : null;
+
+        if (empty($user) || empty($uid)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid user data provided.']);
+            exit();
+        }
+
+        // Branch Isolation Logic
+        if ($role === 'Admin') {
+            $branch = 1; 
+        }
+
+        if (empty($pass)) {
+            // Update without changing password
+            $stmt = $conn->prepare("UPDATE users SET username=?, role=?, branch_id=? WHERE user_id=?");
+            $stmt->bind_param("ssii", $user, $role, $branch, $uid);
+        } else {
+            // Update with new password hash
+            $hash = password_hash($pass, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare("UPDATE users SET username=?, password_hash=?, role=?, branch_id=? WHERE user_id=?");
+            $stmt->bind_param("sssii", $user, $hash, $role, $branch, $uid);
+        }
+
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'User updated successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update user.']);
+        }
+        $stmt->close();
+        exit();
+    }
+
+    // 5. DELETE USER
+    if ($method === 'POST' && $action === 'delete_user') {
+        $uid = intval($input['user_id'] ?? 0);
+        
+        if ($uid === 1) {
+            echo json_encode(['success' => false, 'message' => 'Action Denied: Cannot delete the primary administrator.']);
+            exit();
+        }
+
+        $stmt = $conn->prepare("DELETE FROM users WHERE user_id=?");
+        $stmt->bind_param("i", $uid);
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'User deleted successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to delete user.']);
+        }
+        $stmt->close();
+        exit();
+    }
 }
 ?>
-<!-- HTML UI starts here -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management</title>
+    <title>User Management - Nelun POS</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Google Fonts - Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel=\"stylesheet\">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8f9fa;
-            padding: 20px;
-        }
-        .section-header {
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-            font-size: 1.8rem;
-            color: #343a40;
-            font-weight: 600;
-        }
-        .card {
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: none;
-        }
-        .table-action-btn {
-            margin-right: 5px;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #F2F2F7; padding: 20px; }
+        .card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .table th { background-color: #f8f9fa; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; color: #6c757d; }
+        .badge-admin { background-color: #007AFF; color: white; }
+        .badge-cashier { background-color: #34C759; color: white; }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
+    <div class="container-fluid max-w-7xl mx-auto">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="text-secondary"><i class="bi bi-people me-2"></i>User Management</h3>
-            <button class="btn btn-primary" onclick="openAddUserModal()">
+            <h2 class="h4 mb-0 fw-bold text-dark"><i class="bi bi-people-fill me-2 text-primary"></i> User Management</h2>
+            <button class="btn btn-primary rounded-pill px-4" onclick="openUserModal()">
                 <i class="bi bi-person-plus me-1"></i> Add New User
             </button>
         </div>
 
-        <div class="card p-3">
-            <div id="userMessage" class="alert d-none mb-3" role="alert"></div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle" id="usersTable">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Username</th>
-                            <th>Role</th>
-                            <th>Assigned Branch</th>
-                            <th>Status</th>
-                            <th>Created At</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody">
-                        <tr><td colspan="7" class="text-center text-muted">Loading users...</td></tr>
-                    </tbody>
-                </table>
+        <div id="alertContainer"></div>
+
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Assigned Branch</th>
+                                <th>Created</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <!-- Users will be populated here via JS -->
+                            <tr><td colspan="6" class="text-center py-5 text-muted">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- User Modal (Add/Edit) -->
-    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="userModalLabel">Add New User</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content border-0 shadow" style="border-radius: 16px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="userModalTitle">Add New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <form id="userForm">
                         <input type="hidden" id="userId">
+                        
                         <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" required>
+                            <label class="form-label fw-medium">Username</label>
+                            <input type="text" class="form-control" id="username" required autocomplete="off">
                         </div>
+
                         <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" placeholder="Leave blank to keep current password (Edit mode)">
+                            <label class="form-label fw-medium">Password</label>
+                            <input type="password" class="form-control" id="password" autocomplete="new-password">
+                            <small class="text-muted" id="passwordHelp">Leave blank to keep current password when editing.</small>
                         </div>
+
                         <div class="mb-3">
-                            <label for="role" class="form-label">Role</label>
-                            <select class="form-select" id="role">
-                                <option value="Branch_User">Branch User (Staff)</option>
-                                <option value="Admin">Admin</option>
+                            <label class="form-label fw-medium">System Role</label>
+                            <select class="form-select" id="role" name="role" required onchange="toggleBranchVisibility()">
+                                <option value="Cashier">Cashier (Assigned Branch Only)</option>
+                                <option value="Admin">Admin (Full System Access)</option>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label for="userBranch" class="form-label">Assigned Branch</label>
-                            <select class="form-select" id="userBranch">
-                                <option value="">-- No Branch Assigned --</option>
+
+                        <div class="mb-3" id="branchSelectionDiv">
+                            <label class="form-label fw-medium">Assign Branch</label>
+                            <select class="form-select" id="branch_id">
+                                <option value="">Select a branch...</option>
+                                <!-- Populated dynamically -->
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label for="status" class="form-label">Status</label>
-                            <select class="form-select" id="status">
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                            </select>
+
+                        <div class="mt-4 pt-2">
+                            <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-medium">Save User</button>
                         </div>
-                        <div id="formMessage" class="alert d-none" role="alert"></div>
-                        <button type="submit" class="btn btn-primary w-100" id="saveUserBtn">Save User</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const API_URL = 'user-management.php';
+        let userModal = null;
+        let allBranches = [];
+
         document.addEventListener('DOMContentLoaded', () => {
-            const API_URL = 'user-management.php'; // Relative path
-            const userModalElement = document.getElementById('userModal');
-            const userModal = new bootstrap.Modal(userModalElement);
-            const userForm = document.getElementById('userForm');
-            const userMessageDiv = document.getElementById('userMessage');
-            const formMessageDiv = document.getElementById('formMessage');
-            const usersTableBody = document.getElementById('usersTableBody');
-
-            // --- Helper Functions ---
-            function showMessage(element, message, type = 'success') {
-                element.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
-                element.classList.add(`alert-${type}`);
-                element.textContent = message;
-                element.classList.remove('d-none');
-                setTimeout(() => {
-                    element.classList.add('d-none');
-                }, 3000);
-            }
-
-            // --- Fetch Users ---
-            async function fetchUsers() {
-                try {
-                    const response = await fetch(API_URL, {
-                        headers: { 'Accept': 'application/json' }
-                    });
-                    const data = await response.json();
-
-                    if (data.success) {
-                        renderUsers(data.users);
-                    } else {
-                        usersTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error: ${data.message}</td></tr>`;
-                    }
-                } catch (error) {
-                    console.error('Error fetching users:', error);
-                    usersTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load users.</td></tr>';
-                }
-            }
-
-            function renderUsers(users) {
-                if (users.length === 0) {
-                    usersTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No users found.</td></tr>';
-                    return;
-                }
-
-                usersTableBody.innerHTML = users.map(user => {
-                    const displayRole = user.role.toLowerCase() === 'admin' ? 'Admin' : 'Branch Staff';
-                    const roleBadge = user.role.toLowerCase() === 'admin' ? 'bg-danger' : 'bg-primary';
-                    return `
-                    <tr>
-                        <td>${user.user_id}</td>
-                        <td><strong>${user.username}</strong></td>
-                        <td><span class="badge ${roleBadge}">${displayRole}</span></td>
-                        <td><span class="badge bg-light text-dark border"><i class="bi bi-shop me-1 text-secondary"></i>${user.branch_name || 'Global (All Branches)'}</span></td>
-                        <td><span class="badge ${user.status === 'Active' ? 'bg-success' : 'bg-secondary'}">${user.status}</span></td>
-                        <td><small class="text-muted">${user.created_at}</small></td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-outline-primary table-action-btn" onclick='editUser(${JSON.stringify(user)})' title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${user.user_id})" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    `;
-                }).join('');
-            }
-
-            // --- Load Branches Dropdown ---
-            let activeBranches = [];
-            async function fetchBranches() {
-                try {
-                    const res = await fetch('branch_api.php?action=get_branches');
-                    const data = await res.json();
-                    if (data.success) {
-                        activeBranches = data.branches;
-                        const userBranchSelect = document.getElementById('userBranch');
-                        
-                        // Clear but keep first option
-                        userBranchSelect.innerHTML = '<option value="">-- No Branch Assigned --</option>';
-                        activeBranches.forEach(b => {
-                            const option = new Option(b.branch_name, b.branch_id);
-                            userBranchSelect.add(option);
-                        });
-                    }
-                } catch(e) { console.error('Failed to load branches dropdown', e); }
-            }
-
-            // --- Open Modal (Add Mode) ---
-            window.openAddUserModal = () => {
-                document.getElementById('userModalLabel').textContent = 'Add New User';
-                document.getElementById('userId').value = '';
-                document.getElementById('username').value = '';
-                document.getElementById('password').value = '';
-                document.getElementById('password').required = true; // Password required for new user
-                document.getElementById('role').value = 'Branch_User';
-                document.getElementById('userBranch').value = '';
-                document.getElementById('status').value = 'Active';
-                formMessageDiv.classList.add('d-none');
-                userModal.show();
-            };
- 
-            // --- Open Modal (Edit Mode) ---
-            window.editUser = (user) => {
-                document.getElementById('userModalLabel').textContent = 'Edit User';
-                document.getElementById('userId').value = user.user_id;
-                document.getElementById('username').value = user.username;
-                document.getElementById('password').value = ''; 
-                document.getElementById('password').required = false; // Optional for edit
-                document.getElementById('role').value = user.role.toLowerCase() === 'admin' ? 'Admin' : 'Branch_User';
-                document.getElementById('userBranch').value = user.branch_id || '';
-                document.getElementById('status').value = user.status;
-                formMessageDiv.classList.add('d-none');
-                userModal.show();
-            };
-
-            // --- Handle Form Submit (Add/Edit) ---
-            userForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const userId = document.getElementById('userId').value;
-                const username = document.getElementById('username').value;
-                const password = document.getElementById('password').value;
-                const role = document.getElementById('role').value;
-                const branchId = document.getElementById('userBranch').value;
-                const status = document.getElementById('status').value;
-                
-                const action = userId ? 'update_user' : 'add_user';
-                
-                const payload = {
-                    action: action,
-                    user_id: userId,
-                    username: username,
-                    password: password,
-                    role: role,
-                    branch_id: branchId,
-                    status: status
-                };
-
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST', // Always POST for add/update logic here
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        showMessage(userMessageDiv, data.message, 'success');
-                        userModal.hide();
-                        fetchUsers(); // Refresh the user list
-                    } else {
-                        showMessage(formMessageDiv, data.message, 'danger');
-                    }
-                } catch (error) {
-                    console.error('Error saving user:', error);
-                    showMessage(formMessageDiv, 'An unexpected error occurred.', 'danger');
-                }
-            });
-
-            // --- Delete User ---
-            window.deleteUser = async (userId) => {
-                if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-                    return;
-                }
-
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST', // Always POST for add/update/delete with custom action
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({ user_id: userId, action: 'delete_user' }) // Specify action
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        showMessage(userMessageDiv, data.message, 'success');
-                        fetchUsers(); // Refresh the user list
-                    } else {
-                        showMessage(userMessageDiv, data.message, 'danger');
-                    }
-                } catch (error) {
-                    console.error('Error deleting user:', error);
-                    showMessage(userMessageDiv, 'An unexpected error occurred while deleting the user.', 'danger');
-                }
-            }
-
-            // --- Initial Load ---
+            userModal = new bootstrap.Modal(document.getElementById('userModal'));
             fetchBranches();
             fetchUsers();
         });
+
+        // Toggle Branch dropdown requirement based on Role
+        function toggleBranchVisibility() {
+            const role = document.getElementById('role').value;
+            const branchDiv = document.getElementById('branchSelectionDiv');
+            const branchSelect = document.getElementById('branch_id');
+            
+            if (role === 'Admin') {
+                branchDiv.style.display = 'none';
+                branchSelect.removeAttribute('required');
+                branchSelect.value = ''; 
+            } else {
+                branchDiv.style.display = 'block';
+                branchSelect.setAttribute('required', 'required');
+            }
+        }
+
+        async function fetchBranches() {
+            try {
+                const res = await fetch(`${API_URL}?action=get_branches`);
+                const data = await res.json();
+                if (data.success) {
+                    allBranches = data.branches;
+                    const select = document.getElementById('branch_id');
+                    select.innerHTML = '<option value="">Select a branch...</option>';
+                    allBranches.forEach(b => {
+                        select.innerHTML += `<option value="${b.branch_id}">${b.branch_name}</option>`;
+                    });
+                }
+            } catch (e) {
+                console.error("Error loading branches", e);
+            }
+        }
+
+        async function fetchUsers() {
+            try {
+                const res = await fetch(`${API_URL}?action=get_users`);
+                const data = await res.json();
+                const tbody = document.getElementById('userTableBody');
+                tbody.innerHTML = '';
+
+                if (data.success && data.users.length > 0) {
+                    data.users.forEach(u => {
+                        const roleBadge = u.role === 'Admin' ? 'badge-admin' : 'badge-cashier';
+                        const branchDisplay = u.role === 'Admin' ? '<span class="text-muted">All Branches</span>' : (u.branch_name || '<span class="text-danger">Unassigned</span>');
+                        
+                        tbody.innerHTML += `
+                            <tr>
+                                <td class="ps-4 text-muted fw-medium">#${u.user_id}</td>
+                                <td class="fw-bold">${u.username}</td>
+                                <td><span class="badge ${roleBadge} rounded-pill px-3">${u.role}</span></td>
+                                <td>${branchDisplay}</td>
+                                <td class="text-muted small">${u.created_at || '-'}</td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-light border me-1" onclick='editUser(${JSON.stringify(u)})'>
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-light border text-danger" onclick='deleteUser(${u.user_id})' ${u.user_id == 1 ? 'disabled' : ''}>
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted">No users found.</td></tr>';
+                }
+            } catch (e) {
+                showAlert('Network error fetching users.', 'danger');
+            }
+        }
+
+        function openUserModal() {
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('userModalTitle').textContent = 'Add New User';
+            document.getElementById('password').setAttribute('required', 'required');
+            document.getElementById('passwordHelp').style.display = 'none';
+            toggleBranchVisibility(); // Set initial toggle state
+            userModal.show();
+        }
+
+        window.editUser = function(user) {
+            document.getElementById('userId').value = user.user_id;
+            document.getElementById('username').value = user.username;
+            document.getElementById('role').value = user.role;
+            document.getElementById('branch_id').value = user.branch_id || '';
+            document.getElementById('password').value = ''; 
+            
+            document.getElementById('userModalTitle').textContent = 'Edit User';
+            document.getElementById('password').removeAttribute('required'); // Password optional on edit
+            document.getElementById('passwordHelp').style.display = 'block';
+            
+            toggleBranchVisibility(); // Apply toggle rules
+            userModal.show();
+        }
+
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('userId').value;
+            const payload = {
+                action: id ? 'update_user' : 'add_user',
+                user_id: id,
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                role: document.getElementById('role').value,
+                branch_id: document.getElementById('branch_id').value
+            };
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    userModal.hide();
+                    fetchUsers();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            } catch (err) {
+                showAlert('Error saving user data.', 'danger');
+            }
+        });
+
+        window.deleteUser = async function(id) {
+            if (!confirm('Are you sure you want to completely delete this user?')) return;
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete_user', user_id: id })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showAlert('User deleted successfully.', 'warning');
+                    fetchUsers();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            } catch (err) {
+                showAlert('Error deleting user.', 'danger');
+            }
+        }
+
+        function showAlert(msg, type) {
+            const div = document.createElement('div');
+            div.className = `alert alert-${type} alert-dismissible fade show shadow fixed-top m-3`;
+            div.style.zIndex = 2000;
+            div.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.getElementById('alertContainer').appendChild(div);
+            setTimeout(() => div.remove(), 4000);
+        }
     </script>
 </body>
 </html>
 <?php
-// Close database connection if it was opened and not closed earlier due to an API request exit
+// Close database connection if it was opened
 if ($conn && $is_api_request === false) {
     $conn->close();
 }

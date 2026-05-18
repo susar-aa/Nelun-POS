@@ -31,14 +31,15 @@ if ($action === 'init_schema') {
             user_id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) NOT NULL UNIQUE,
             password_hash VARCHAR(255) NOT NULL,
-            role ENUM('Admin', 'Branch_User') DEFAULT 'Branch_User',
+            role ENUM('Admin', 'Cashier') DEFAULT 'Cashier',
             branch_id INT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (branch_id) REFERENCES branches(branch_id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Try adding role and branch_id to existing users table if it was created differently
-        try { $pdo->exec("ALTER TABLE users ADD COLUMN role ENUM('Admin', 'Branch_User') DEFAULT 'Branch_User';"); } catch(Exception $e){}
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN role ENUM('Admin', 'Cashier') DEFAULT 'Cashier';"); } catch(Exception $e){}
+        try { $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('Admin', 'Cashier') DEFAULT 'Cashier';"); } catch(Exception $e){}
         try { $pdo->exec("ALTER TABLE users ADD COLUMN branch_id INT NULL;"); } catch(Exception $e){}
         try { $pdo->exec("ALTER TABLE users ADD CONSTRAINT fk_user_branch FOREIGN KEY (branch_id) REFERENCES branches(branch_id) ON DELETE SET NULL;"); } catch(Exception $e){}
 
@@ -56,10 +57,12 @@ if ($action === 'init_schema') {
         $uCount = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
         if ($uCount == 0) {
             $hash = password_hash('1234', PASSWORD_DEFAULT);
-            $pdo->exec("INSERT INTO users (username, password_hash, role, branch_id) VALUES ('admin', '$hash', 'Admin', 1), ('user1', '$hash', 'Branch_User', 2)");
+            $pdo->exec("INSERT INTO users (username, password_hash, role, branch_id) VALUES ('admin', '$hash', 'Admin', 1), ('user1', '$hash', 'Cashier', 2)");
         } else {
             // Force the primary user (ID 1) to be an Admin to prevent lockout
-            $pdo->exec("UPDATE users SET role = 'Admin', branch_id = 1 WHERE user_id = 1 OR role = 'Branch_User'");
+            $pdo->exec("UPDATE users SET role = 'Admin', branch_id = 1 WHERE user_id = 1");
+            // Migrate old 'Branch_User' roles to 'Cashier' to prevent data loss
+            $pdo->exec("UPDATE users SET role = 'Cashier' WHERE role = 'Branch_User' OR role = 'Staff'");
         }
         
         // Update existing sales to Branch 1 if not set

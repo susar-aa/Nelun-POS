@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    
     <style>
         :root {
             --ios-bg: #F2F2F7;
@@ -56,7 +55,7 @@
 
         .info-pill {
             background: #FFFFFF;
-            border: 1px solid rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0,0,0,0.05);
             border-radius: 100px;
             padding: 6px 16px;
             display: flex;
@@ -66,19 +65,16 @@
             color: var(--ios-text-secondary);
             font-weight: 500;
             transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
-
         .info-pill:hover {
             color: var(--ios-text-primary);
             background: #fff;
             transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
         }
 
-        .user-pill {
-            padding-right: 20px;
-        }
+        .user-pill { padding-right: 20px; }
 
         /* --- Typography & Headers --- */
         .section-label {
@@ -94,8 +90,8 @@
         .ios-card {
             background: var(--ios-card-bg);
             border-radius: 20px;
-            border: 1px solid rgba(0, 0, 0, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0,0,0,0.02);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
             padding: 20px;
             height: 100%;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -104,10 +100,8 @@
             flex-direction: column;
             justify-content: space-between;
         }
-
-        .ios-card:active {
-            transform: scale(0.98);
-        }
+        
+        .ios-card:active { transform: scale(0.98); }
 
         /* --- Card Internals --- */
         .card-header-flex {
@@ -129,35 +123,12 @@
         }
 
         /* Icon Colors */
-        .bg-blue-light {
-            background-color: rgba(0, 122, 255, 0.1);
-            color: var(--ios-blue);
-        }
-
-        .bg-green-light {
-            background-color: rgba(52, 199, 89, 0.1);
-            color: var(--ios-green);
-        }
-
-        .bg-orange-light {
-            background-color: rgba(255, 149, 0, 0.1);
-            color: var(--ios-orange);
-        }
-
-        .bg-red-light {
-            background-color: rgba(255, 59, 48, 0.1);
-            color: var(--ios-red);
-        }
-
-        .bg-indigo-light {
-            background-color: rgba(88, 86, 214, 0.1);
-            color: var(--ios-indigo);
-        }
-
-        .bg-gray-light {
-            background-color: var(--ios-gray-light);
-            color: var(--ios-text-secondary);
-        }
+        .bg-blue-light { background-color: rgba(0, 122, 255, 0.1); color: var(--ios-blue); }
+        .bg-green-light { background-color: rgba(52, 199, 89, 0.1); color: var(--ios-green); }
+        .bg-orange-light { background-color: rgba(255, 149, 0, 0.1); color: var(--ios-orange); }
+        .bg-red-light { background-color: rgba(255, 59, 48, 0.1); color: var(--ios-red); }
+        .bg-indigo-light { background-color: rgba(88, 86, 214, 0.1); color: var(--ios-indigo); }
+        .bg-gray-light { background-color: var(--ios-gray-light); color: var(--ios-text-secondary); }
 
         .stat-label {
             font-size: 0.85rem;
@@ -178,26 +149,15 @@
         .card-footer-stats {
             margin-top: 15px;
             padding-top: 12px;
-            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            border-top: 1px solid rgba(0,0,0,0.05);
             display: flex;
             justify-content: space-between;
             font-size: 0.75rem;
         }
-
-        .sub-stat-item {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .sub-stat-label {
-            color: var(--ios-text-secondary);
-            font-weight: 500;
-        }
-
-        .sub-stat-val {
-            color: var(--ios-text-primary);
-            font-weight: 600;
-        }
+        
+        .sub-stat-item { display: flex; flex-direction: column; }
+        .sub-stat-label { color: var(--ios-text-secondary); font-weight: 500; }
+        .sub-stat-val { color: var(--ios-text-primary); font-weight: 600; }
 
         /* --- Segmented Control (Tabs) --- */
         .ios-segmented-control {
@@ -207,7 +167,7 @@
             display: inline-flex;
             position: relative;
         }
-
+        
         .ios-segmented-control .nav-link {
             border-radius: 7px;
             color: var(--ios-text-secondary);
@@ -217,11 +177,11 @@
             border: none;
             transition: all 0.2s ease;
         }
-
+        
         .ios-segmented-control .nav-link.active {
             background-color: white;
             color: black;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         /* --- Buttons --- */
@@ -230,15 +190,14 @@
             height: 40px;
             border-radius: 50%;
             background: white;
-            border: 1px solid rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0,0,0,0.05);
             color: var(--ios-blue);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             transition: transform 0.2s;
         }
-
         .btn-ios-icon:hover {
             transform: scale(1.05);
             background: #f8f9fa;
@@ -252,11 +211,10 @@
         }
     </style>
 </head>
-
 <body>
 
     <div class="container-fluid" style="max-width: 1600px;">
-
+        
         <!-- TOP UTILITY BAR (Replaces Big Dashboard Title) -->
         <div class="utility-bar">
             <!-- Left: Context Info -->
@@ -266,11 +224,10 @@
                     <i class="bi bi-clock text-primary"></i>
                     <span id="liveDateTime">...</span>
                 </div>
-
+                
                 <!-- User Info -->
                 <div class="info-pill user-pill" title="Logged In User">
-                    <div class="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center"
-                        style="width: 24px; height: 24px;">
+                    <div class="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
                         <i class="bi bi-person-fill" style="font-size: 0.8rem;"></i>
                     </div>
                     <div>
@@ -283,18 +240,24 @@
 
             <!-- Right: View Controls -->
             <div class="info-group">
+                
+                <!-- Branch Selector (Admin Only) -->
+                <div class="branch-selector-container">
+                    <select id="branchSelector" class="form-select form-select-sm rounded-pill" style="font-size: 0.85rem; border-color: rgba(0,0,0,0.1); cursor: pointer;" onchange="changeAdminBranch(this.value)">
+                        <option value="all">All Branches</option>
+                    </select>
+                </div>
+
                 <!-- Segmented Control -->
                 <ul class="nav nav-pills ios-segmented-control" id="dashboardTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="overview-tab" data-bs-toggle="pill"
-                            data-bs-target="#overview-pane" type="button" role="tab">Overview</button>
+                        <button class="nav-link active" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview-pane" type="button" role="tab">Overview</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="analytics-tab" data-bs-toggle="pill"
-                            data-bs-target="#analytics-pane" type="button" role="tab">Analytics</button>
+                        <button class="nav-link" id="analytics-tab" data-bs-toggle="pill" data-bs-target="#analytics-pane" type="button" role="tab">Analytics</button>
                     </li>
                 </ul>
-
+                
                 <button class="btn-ios-icon" onclick="fetchDashboardData()" title="Refresh Data">
                     <i class="bi bi-arrow-clockwise fs-5"></i>
                 </button>
@@ -304,14 +267,14 @@
         <div id="alertContainer"></div>
 
         <div class="tab-content" id="dashboardContent">
-
+            
             <!-- TAB 1: OVERVIEW -->
             <div class="tab-pane fade show active" id="overview-pane" role="tabpanel">
-
+                
                 <!-- SECTION 1: TODAY'S PERFORMANCE -->
                 <div class="section-label">Performance Today</div>
                 <div class="row g-3 g-xl-4 mb-2">
-
+                    
                     <!-- Today's Sales (Hero Card) -->
                     <div class="col-xl-3 col-md-6">
                         <div class="ios-card">
@@ -320,8 +283,7 @@
                                     <i class="bi bi-currency-dollar"></i>
                                 </div>
                                 <!-- Live/Difference Badge -->
-                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 fw-normal"
-                                    id="det_yestStatusBadge">
+                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 fw-normal" id="det_yestStatusBadge">
                                     vs Yest <span id="det_yestDiff">...</span>
                                 </span>
                             </div>
@@ -349,8 +311,7 @@
                                 <div class="icon-squircle bg-green-light">
                                     <i class="bi bi-cash"></i>
                                 </div>
-                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 fw-normal"
-                                    id="det_todayCashPct">0%</span>
+                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 fw-normal" id="det_todayCashPct">0%</span>
                             </div>
                             <div>
                                 <div class="stat-label">Cash Collected</div>
@@ -376,8 +337,7 @@
                                 <div class="icon-squircle bg-orange-light">
                                     <i class="bi bi-credit-card-2-front"></i>
                                 </div>
-                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 fw-normal"
-                                    id="det_todayCardPct">0%</span>
+                                <span class="badge bg-light text-secondary border rounded-pill px-2 py-1 fw-normal" id="det_todayCardPct">0%</span>
                             </div>
                             <div>
                                 <div class="stat-label">Card Sales</div>
@@ -425,13 +385,12 @@
                 <!-- SECTION 2: DRAWER & EXPENSES -->
                 <div class="section-label">Drawer & Activity</div>
                 <div class="row g-3 g-xl-4 mb-2">
-
+                    
                     <!-- Drawer Balance -->
                     <div class="col-xl-3 col-md-6">
                         <div class="ios-card">
                             <div class="card-header-flex">
-                                <div class="icon-squircle bg-indigo-light"
-                                    style="background: rgba(44, 62, 80, 0.1); color: #2c3e50;">
+                                <div class="icon-squircle bg-indigo-light" style="background: rgba(44, 62, 80, 0.1); color: #2c3e50;">
                                     <i class="bi bi-safe2"></i>
                                 </div>
                             </div>
@@ -454,7 +413,7 @@
 
                     <!-- Expenses -->
                     <div class="col-xl-3 col-md-6">
-                        <div class="ios-card">
+                         <div class="ios-card">
                             <div class="card-header-flex">
                                 <div class="icon-squircle bg-red-light">
                                     <i class="bi bi-wallet2"></i>
@@ -525,20 +484,20 @@
                 <div class="section-label">All Time Overview</div>
                 <div class="row g-3 g-xl-4 mb-4">
                     <div class="col-md-3">
-                        <div class="ios-card py-3">
+                         <div class="ios-card py-3">
                             <span class="stat-label">Total Revenue</span>
                             <span class="fw-bold fs-5 text-dark" id="allTimeSales">Rs. 0.00</span>
                             <small class="text-muted mt-1"><span id="det_allBills">0</span> Total Bills</small>
-                        </div>
+                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="ios-card py-3">
-                            <span class="stat-label">Total Cash</span>
-                            <span class="fw-bold fs-5 text-dark" id="allTimeCash">Rs. 0.00</span>
-                            <small class="text-muted mt-1"><span id="det_allCashBills">0</span> Bills</small>
+                           <span class="stat-label">Total Cash</span>
+                           <span class="fw-bold fs-5 text-dark" id="allTimeCash">Rs. 0.00</span>
+                           <small class="text-muted mt-1"><span id="det_allCashBills">0</span> Bills</small>
                         </div>
-                    </div>
-                    <div class="col-md-3">
+                   </div>
+                   <div class="col-md-3">
                         <div class="ios-card py-3">
                             <span class="stat-label">Total Card</span>
                             <span class="fw-bold fs-5 text-dark" id="allTimeCard">Rs. 0.00</span>
@@ -547,11 +506,11 @@
                     </div>
                     <div class="col-md-3">
                         <div class="ios-card py-3">
-                            <span class="stat-label">Total Expenses</span>
-                            <span class="fw-bold fs-5 text-danger" id="allTimeExpense">Rs. 0.00</span>
-                            <small class="text-muted mt-1">Lifetime</small>
+                           <span class="stat-label">Total Expenses</span>
+                           <span class="fw-bold fs-5 text-danger" id="allTimeExpense">Rs. 0.00</span>
+                           <small class="text-muted mt-1">Lifetime</small>
                         </div>
-                    </div>
+                   </div>
                 </div>
 
             </div>
@@ -620,21 +579,50 @@
 
         // Load User Info from Storage
         const storedUser = localStorage.getItem('username') || 'Guest';
-        const storedRole = localStorage.getItem('role') || 'Staff';
+        const storedRole = localStorage.getItem('role') || 'Cashier';
         const storedBranchId = localStorage.getItem('branch_id'); // GET ASSIGNED BRANCH
 
         document.getElementById('welcomeUser').textContent = storedUser;
         document.getElementById('welcomeRole').textContent = storedRole;
 
         // --- STRICT MODIFICATION: Client-Side UI Isolation ---
-        if (storedRole === 'Branch_User') {
+        // If the user is NOT an Admin (covers Cashier, Staff, etc.)
+        if (storedRole !== 'Admin') {
             // Force the internal tracker to the assigned branch
             localStorage.setItem('admin_selected_branch', storedBranchId);
-
-            // Mask any explicitly tagged branch selectors across the UI tree
+            
+            // Mask and COMPLETELY remove any explicitly tagged branch selectors across the UI tree
             document.querySelectorAll('.branch-selector-container, #branchSelector, .branch-filter').forEach(el => {
-                el.style.display = 'none';
+                el.style.setProperty('display', 'none', 'important');
+                el.remove(); // Safety: Remove it from DOM completely
             });
+        } else {
+            // If they are an Admin, load the branch selector list
+            fetchBranchesForAdmin();
+        }
+
+        function changeAdminBranch(val) {
+            localStorage.setItem('admin_selected_branch', val);
+            fetchDashboardData(); // Refresh Data immediately upon switching
+        }
+
+        async function fetchBranchesForAdmin() {
+            try {
+                const res = await fetch('branch_api.php?action=get_branches');
+                const data = await res.json();
+                if (data.success) {
+                    const selector = document.getElementById('branchSelector');
+                    if(selector) {
+                        data.branches.forEach(b => {
+                            const opt = document.createElement('option');
+                            opt.value = b.branch_id;
+                            opt.textContent = b.branch_name;
+                            selector.appendChild(opt);
+                        });
+                        selector.value = localStorage.getItem('admin_selected_branch') || 'all';
+                    }
+                }
+            } catch(e) { console.error("Error fetching branches:", e); }
         }
 
         // --- 2. Dashboard Logic ---
@@ -649,8 +637,9 @@
                 // Call the API (Dynamically mapped based on role limits)
                 const activeRole = localStorage.getItem('role');
                 const activeBranchId = localStorage.getItem('branch_id');
-                const bId = (activeRole === 'Branch_User')
-                    ? activeBranchId
+                // Use the !== 'Admin' check here as well to enforce isolation
+                const bId = (activeRole !== 'Admin') 
+                    ? activeBranchId 
                     : (localStorage.getItem('admin_selected_branch') || 'all');
 
                 const res = await fetch(`pos_api.php?action=get_enhanced_dashboard_summary&branch_id=${bId}`);
@@ -658,7 +647,7 @@
 
                 if (data.success) {
                     populateData(data);
-                    fetchCharts(data);
+                    fetchCharts(data); 
                 } else {
                     console.error("API Error:", data.message);
                 }
@@ -668,14 +657,14 @@
         }
 
         function populateData(data) {
-            const fmt = (val) => 'Rs. ' + parseFloat(val || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 });
+            const fmt = (val) => 'Rs. ' + parseFloat(val || 0).toLocaleString('en-LK', {minimumFractionDigits: 2});
             const num = (val) => parseInt(val || 0).toLocaleString();
 
             // --- 1. Today Main ---
             document.getElementById('todaySales').textContent = fmt(data.today.sales);
             document.getElementById('todayCash').textContent = fmt(data.today.cash_sales);
             document.getElementById('todayCard').textContent = fmt(data.today.card_sales);
-
+            
             // Sub Stats
             document.getElementById('det_todayBills').textContent = num(data.today.bills);
             document.getElementById('det_todayCashBills').textContent = num(data.today.bills_cash);
@@ -683,18 +672,18 @@
 
             // Percentages
             const total = parseFloat(data.today.sales) || 1;
-            document.getElementById('det_todayCashPct').textContent = ((parseFloat(data.today.cash_sales) / total) * 100).toFixed(0) + "%";
-            document.getElementById('det_todayCardPct').textContent = ((parseFloat(data.today.card_sales) / total) * 100).toFixed(0) + "%";
+            document.getElementById('det_todayCashPct').textContent = ((parseFloat(data.today.cash_sales)/total)*100).toFixed(0) + "%";
+            document.getElementById('det_todayCardPct').textContent = ((parseFloat(data.today.card_sales)/total)*100).toFixed(0) + "%";
 
             // Comparison
             document.getElementById('yesterdaySales').textContent = fmt(data.yesterday.sales);
             const diff = parseFloat(data.today.sales) - parseFloat(data.yesterday.sales);
             const diffStr = (diff >= 0 ? '+' : '') + fmt(diff);
             document.getElementById('det_yestDiff').textContent = diffStr;
-
+            
             // Update Comparison Badge Color
             const badge = document.getElementById('det_yestStatusBadge');
-            if (diff >= 0) {
+            if(diff >= 0) {
                 badge.className = "badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 fw-normal";
                 badge.innerHTML = `<i class="bi bi-arrow-up-short"></i> ${diffStr}`;
             } else {
@@ -709,7 +698,7 @@
             document.getElementById('det_drawerExp').textContent = fmt(data.today.expenses);
             document.getElementById('todayCashIn').textContent = fmt(data.today.cash_in);
             document.getElementById('todayExpense').textContent = fmt(data.today.expenses);
-
+            
             // Profit
             document.getElementById('todayProfit').textContent = fmt(data.today.profit);
             document.getElementById('det_profitRev').textContent = fmt(data.today.sales);
@@ -736,33 +725,33 @@
             const startDate = new Date(today.setDate(today.getDate() - 6)).toISOString().split('T')[0];
 
             try {
-                // Ensure reports.php endpoint maps branch exactly like overview logic above
+                // Apply strict !== Admin mapping for charts as well
                 const activeRole = localStorage.getItem('role');
                 const activeBranchId = localStorage.getItem('branch_id');
-                const bId = (activeRole === 'Branch_User')
-                    ? activeBranchId
+                const bId = (activeRole !== 'Admin') 
+                    ? activeBranchId 
                     : (localStorage.getItem('admin_selected_branch') || 'all');
-
+                    
                 const res = await fetch(`reports.php?action=getAnalytics&start=${startDate}&end=${endDate}&branch_id=${bId}`);
                 const analytics = await res.json();
-                if (analytics.success) {
+                if(analytics.success) {
                     renderCharts(analytics.trend, summaryData);
                 }
-            } catch (e) { console.warn("Chart data fetch failed, checking if static data available", e); }
+            } catch(e) { console.warn("Chart data fetch failed, checking if static data available", e); }
         }
 
         function renderCharts(trendData, summaryData) {
             // Setup defaults for iOS feel
             Chart.defaults.font.family = "'Inter', sans-serif";
             Chart.defaults.color = '#8E8E93';
-
+            
             const ctx1 = document.getElementById('salesTrendChart').getContext('2d');
             const ctx2 = document.getElementById('paymentMethodChart').getContext('2d');
             const ctx3 = document.getElementById('topProductsChart').getContext('2d');
 
-            if (salesChart) salesChart.destroy();
-            if (paymentChart) paymentChart.destroy();
-            if (topProductsChart) topProductsChart.destroy();
+            if(salesChart) salesChart.destroy();
+            if(paymentChart) paymentChart.destroy();
+            if(topProductsChart) topProductsChart.destroy();
 
             // 1. Sales Trend (Gradient Line)
             const gradient = ctx1.createLinearGradient(0, 0, 0, 400);
@@ -774,15 +763,15 @@
                 data: {
                     labels: trendData.map(d => {
                         const date = new Date(d.date);
-                        return date.toLocaleDateString('en-US', { weekday: 'short' });
+                        return date.toLocaleDateString('en-US', {weekday:'short'});
                     }),
                     datasets: [
-                        {
-                            label: 'Revenue',
-                            data: trendData.map(d => d.revenue),
+                        { 
+                            label: 'Revenue', 
+                            data: trendData.map(d => d.revenue), 
                             borderColor: '#007AFF', // iOS Blue
-                            backgroundColor: gradient,
-                            fill: true,
+                            backgroundColor: gradient, 
+                            fill: true, 
                             tension: 0.4,
                             pointRadius: 4,
                             pointHoverRadius: 6,
@@ -791,18 +780,18 @@
                         }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
                     plugins: { legend: { display: false } },
-                    scales: {
+                    scales: { 
                         x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                        y: {
-                            beginAtZero: true,
+                        y: { 
+                            beginAtZero: true, 
                             grid: { color: '#F2F2F7', drawBorder: false },
-                            ticks: { callback: function (value) { return value >= 1000 ? (value / 1000) + 'k' : value; } }
-                        }
-                    }
+                            ticks: { callback: function(value) { return value >= 1000 ? (value/1000) + 'k' : value; } }
+                        } 
+                    } 
                 }
             });
 
@@ -814,18 +803,18 @@
                 type: 'doughnut',
                 data: {
                     labels: ['Cash', 'Card'],
-                    datasets: [{
-                        data: [cash, card],
+                    datasets: [{ 
+                        data: [cash, card], 
                         backgroundColor: ['#34C759', '#FF9500'], // iOS Green & Orange
                         borderWidth: 0,
                         hoverOffset: 4
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
                     cutout: '75%',
-                    plugins: { legend: { display: false } }
+                    plugins: { legend: { display: false } } 
                 }
             });
 
@@ -834,7 +823,7 @@
             topProductsChart = new Chart(ctx3, {
                 type: 'bar',
                 data: {
-                    labels: topProducts.map(p => p.name.substring(0, 15) + (p.name.length > 15 ? '...' : '')),
+                    labels: topProducts.map(p => p.name.substring(0, 15) + (p.name.length>15?'...':'')),
                     datasets: [{
                         label: 'Units',
                         data: topProducts.map(p => p.total_qty),
@@ -843,18 +832,17 @@
                         barThickness: 30
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
                     plugins: { legend: { display: false } },
-                    scales: {
+                    scales: { 
                         x: { grid: { display: false } },
-                        y: { beginAtZero: true, grid: { color: '#F2F2F7', drawBorder: false } }
+                        y: { beginAtZero: true, grid: { color: '#F2F2F7', drawBorder: false } } 
                     }
                 }
             });
         }
     </script>
 </body>
-
 </html>

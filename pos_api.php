@@ -24,12 +24,13 @@ if ($method === 'POST') {
 }
 
 // --- STRICT MODIFICATION: Server-Side Branch Isolation Enforcement ---
-// If the logged-in user is staff (Branch_User), silently overwrite any client-requested branch filters.
-// This guarantees they can NEVER query data from other branches using Postman or browser console hacks.
-if (isset($_SESSION['role']) && $_SESSION['role'] === 'Branch_User') {
-    $_GET['branch_id'] = $_SESSION['branch_id'] ?? null;
+// Default-Deny Policy: We assume everyone is a Cashier unless explicitly proven to be an Admin via session.
+$isAdmin = isset($_SESSION['role']) && $_SESSION['role'] === 'Admin';
+if (!$isAdmin) {
+    $assignedBranch = $_SESSION['branch_id'] ?? null;
+    $_GET['branch_id'] = $assignedBranch;
     if (is_array($input_data)) {
-        $input_data['branch_id'] = $_SESSION['branch_id'] ?? null;
+        $input_data['branch_id'] = $assignedBranch;
     }
 }
 
