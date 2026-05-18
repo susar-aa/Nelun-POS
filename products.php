@@ -46,18 +46,20 @@ elseif ($action === 'getProductsPaginated') {
         // NEW FILTERS
         $statusFilter = $_GET['status'] ?? 'Active'; // Default to Active if not specified
         $stockFilter = $_GET['stock'] ?? 'All';      // 'Low', 'Out', 'All'
+        $categoryFilter = $_GET['category_id'] ?? 'All';
+        $supplierFilter = $_GET['supplier_id'] ?? 'All';
 
         $offset = ($page - 1) * $limit;
 
         // Base SQL
-        $sql = "SELECT product_id, name, item_code, product_code, quantity, price, cost, status FROM Products WHERE 1=1";
-        $countSql = "SELECT COUNT(*) as total FROM Products WHERE 1=1";
+        $sql = "SELECT p.product_id, p.name, p.item_code, p.product_code, p.quantity, p.price, p.cost, p.status, p.category_id, p.supplier_id, c.name as category_name, s.name as supplier_name FROM Products p LEFT JOIN categories c ON p.category_id = c.category_id LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id WHERE 1=1";
+        $countSql = "SELECT COUNT(*) as total FROM Products p WHERE 1=1";
         $params = [];
 
         // A. Apply Search
         if (!empty($search)) {
             $term = "%$search%";
-            $clause = " AND (name LIKE ? OR product_code LIKE ? OR item_code LIKE ?)";
+            $clause = " AND (p.name LIKE ? OR p.product_code LIKE ? OR p.item_code LIKE ?)";
             $sql .= $clause;
             $countSql .= $clause;
             $params[] = $term; $params[] = $term; $params[] = $term;
@@ -65,22 +67,36 @@ elseif ($action === 'getProductsPaginated') {
 
         // B. Apply Status Filter
         if ($statusFilter !== 'All') {
-            $sql .= " AND status = ?";
-            $countSql .= " AND status = ?";
+            $sql .= " AND p.status = ?";
+            $countSql .= " AND p.status = ?";
             $params[] = $statusFilter;
         }
 
         // C. Apply Stock Filter
         if ($stockFilter === 'Low') {
-            $sql .= " AND quantity <= 5 AND quantity > 0";
-            $countSql .= " AND quantity <= 5 AND quantity > 0";
+            $sql .= " AND p.quantity <= 5 AND p.quantity > 0";
+            $countSql .= " AND p.quantity <= 5 AND p.quantity > 0";
         } elseif ($stockFilter === 'Out') {
-            $sql .= " AND quantity = 0";
-            $countSql .= " AND quantity = 0";
+            $sql .= " AND p.quantity = 0";
+            $countSql .= " AND p.quantity = 0";
         }
 
-        // D. Sorting & Limits
-        $sql .= " ORDER BY product_id DESC LIMIT $limit OFFSET $offset";
+        // D. Apply Category Filter
+        if ($categoryFilter !== 'All') {
+            $sql .= " AND p.category_id = ?";
+            $countSql .= " AND p.category_id = ?";
+            $params[] = $categoryFilter;
+        }
+
+        // E. Apply Supplier Filter
+        if ($supplierFilter !== 'All') {
+            $sql .= " AND p.supplier_id = ?";
+            $countSql .= " AND p.supplier_id = ?";
+            $params[] = $supplierFilter;
+        }
+
+        // F. Sorting & Limits
+        $sql .= " ORDER BY p.product_id DESC LIMIT $limit OFFSET $offset";
 
         // Execute Count
         $stmtCount = $pdo->prepare($countSql);
@@ -148,7 +164,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveGeneralProduct
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addProduct') {
     $input = json_decode(file_get_contents('php://input'), true);
     try {
-        $stmt = $pdo->prepare("INSERT INTO Products (name, item_code, product_code, price, cost, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO Products (name, item_code, product_code, price, cost, quantity, status, category_id, supplier_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
         $code = !empty($input['product_code']) ? $input['product_code'] : str_pad(mt_rand(1,99999999), 8, '0', STR_PAD_LEFT);
         $status = $input['status'] ?? 'Active';
@@ -160,7 +176,9 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addProduct') {
             $input['price'],
             $input['cost'],
             $input['quantity'],
-            $status
+            $status,
+            !empty($input['category_id']) ? (int)$input['category_id'] : null,
+            !empty($input['supplier_id']) ? (int)$input['supplier_id'] : null
         ]);
         echo json_encode(["success" => true, "message" => "Product added."]);
     } catch (PDOException $e) {
@@ -170,7 +188,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addProduct') {
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'updateProduct') {
     $input = json_decode(file_get_contents('php://input'), true);
     try {
-        $stmt = $pdo->prepare("UPDATE Products SET name=?, item_code=?, product_code=?, price=?, cost=?, quantity=?, status=? WHERE product_id=?");
+        $stmt = $pdo->prepare("UPDATE Products SET name=?, item_code=?, product_code=?, price=?, cost=?, quantity=?, status=?, category_id=?, supplier_id=? WHERE product_id=?");
         $stmt->execute([
             $input['name'],
             $input['item_code'],
@@ -179,6 +197,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'updateProduct') {
             $input['cost'],
             $input['quantity'],
             $input['status'],
+            !empty($input['category_id']) ? (int)$input['category_id'] : null,
+            !empty($input['supplier_id']) ? (int)$input['supplier_id'] : null,
             $input['product_id']
         ]);
         echo json_encode(["success" => true, "message" => "Product updated."]);

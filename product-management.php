@@ -222,16 +222,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <input type="text" class="form-control border-start-0 ps-0 shadow-none" id="searchInput" placeholder="Search by Name, Code or Barcode...">
                     </div>
                     
-                    <select class="form-select" id="statusFilter" style="flex: 1; max-width: 150px;">
+                    <select class="form-select" id="statusFilter" style="flex: 1; max-width: 130px;">
                         <option value="All">All Status</option>
                         <option value="Active" selected>Active Only</option>
                         <option value="Inactive">Inactive Only</option>
                     </select>
 
-                    <select class="form-select" id="stockFilter" style="flex: 1; max-width: 150px;">
+                    <select class="form-select" id="stockFilter" style="flex: 1; max-width: 130px;">
                         <option value="All" selected>All Stock</option>
                         <option value="Low">Low Stock</option>
                         <option value="Out">Out of Stock</option>
+                    </select>
+
+                    <select class="form-select" id="catFilter" style="flex: 1; max-width: 160px;">
+                        <option value="All" selected>All Categories</option>
+                    </select>
+
+                    <select class="form-select" id="supFilter" style="flex: 1; max-width: 160px;">
+                        <option value="All" selected>All Suppliers</option>
                     </select>
                 </div>
             </div>
@@ -326,6 +334,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </div>
                         <div class="row">
                             <div class="col-6 mb-3">
+                                <label class="form-label">Category</label>
+                                <select id="prodCategory" class="form-select">
+                                    <option value="">-- No Category --</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Supplier</label>
+                                <select id="prodSupplier" class="form-select">
+                                    <option value="">-- No Supplier --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
                                 <label class="form-label">Quantity</label>
                                 <input type="number" class="form-control" id="prodQty" required>
                             </div>
@@ -388,7 +410,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         const userRole = localStorage.getItem('role') || 'Cashier'; 
         const isCashier = (userRole.toLowerCase() === 'cashier');
 
-        document.addEventListener('DOMContentLoaded', () => {
+        let categories = [];
+        let suppliers = [];
+
+        async function loadMetadata() {
+            try {
+                // Load Categories
+                const resCat = await fetch('categories.php?action=getCategories');
+                const dataCat = await resCat.json();
+                if (dataCat.success) {
+                    categories = dataCat.categories;
+                    const filter = document.getElementById('catFilter');
+                    const select = document.getElementById('prodCategory');
+                    categories.forEach(c => {
+                        filter.add(new Option(c.name, c.category_id));
+                        select.add(new Option(c.name, c.category_id));
+                    });
+                }
+
+                // Load Suppliers
+                const resSup = await fetch('suppliers.php?action=getSuppliers');
+                const dataSup = await resSup.json();
+                if (dataSup.success) {
+                    suppliers = dataSup.suppliers;
+                    const filter = document.getElementById('supFilter');
+                    const select = document.getElementById('prodSupplier');
+                    suppliers.forEach(s => {
+                        filter.add(new Option(s.name, s.supplier_id));
+                        select.add(new Option(s.name, s.supplier_id));
+                    });
+                }
+            } catch (e) { console.error('Error loading categories and suppliers: ', e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadMetadata();
             fetchProducts();
             
             if (isCashier) {
@@ -410,6 +466,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         document.getElementById('searchInput').addEventListener('input', debounceSearch);
         document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; fetchProducts(); });
         document.getElementById('stockFilter').addEventListener('change', () => { currentPage = 1; fetchProducts(); });
+        document.getElementById('catFilter').addEventListener('change', () => { currentPage = 1; fetchProducts(); });
+        document.getElementById('supFilter').addEventListener('change', () => { currentPage = 1; fetchProducts(); });
 
         function debounceSearch() {
             clearTimeout(searchTimeout);
@@ -424,10 +482,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             const searchTerm = document.getElementById('searchInput').value;
             const status = document.getElementById('statusFilter').value;
             const stock = document.getElementById('stockFilter').value;
+            const cat = document.getElementById('catFilter').value;
+            const sup = document.getElementById('supFilter').value;
 
             try {
                 // Pass filters to API
-                const url = `products.php?action=getProductsPaginated&page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}&status=${status}&stock=${stock}`;
+                const url = `products.php?action=getProductsPaginated&page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}&status=${status}&stock=${stock}&category_id=${cat}&supplier_id=${sup}`;
                 const res = await fetch(url);
                 const data = await res.json();
                 
@@ -496,8 +556,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><span class="fw-bold text-dark">${p.name}</span></td>
-                    <td><small class="text-muted bg-light px-2 py-1 rounded border">${p.item_code || '-'}</small></td>
+                    <td>
+                        <span class="fw-bold text-dark">${p.name}</span><br>
+                        <span class="badge bg-light text-muted border text-uppercase" style="font-size:0.65rem;">${p.category_name || 'No Category'}</span>
+                    </td>
+                    <td>
+                        <small class="text-muted bg-light px-2 py-1 rounded border">${p.item_code || '-'}</small><br>
+                        <small class="text-muted" style="font-size:0.75rem;">${p.supplier_name || ''}</small>
+                    </td>
                     <td><small class="text-primary font-monospace">${p.product_code}</small></td>
                     <td>${statusSwitchHtml}</td>
                     <td class="text-center">
@@ -531,6 +597,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <div class="mobile-main-row">
                         <div class="mobile-left">
                             <div class="prod-name-mobile">${p.name}</div>
+                            <div class="mb-1"><span class="badge bg-light text-muted border text-uppercase" style="font-size:0.65rem;">${p.category_name || 'No Category'}</span></div>
                             <div class="prod-price-mobile">Rs. ${parseFloat(p.price).toFixed(2)}</div>
                              <div class="mt-2">${statusSwitchHtml}</div>
                         </div>
@@ -540,7 +607,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             ${showItemCode ? `<small class="text-muted mt-1" style="font-size:0.75rem;">${p.item_code}</small>` : ''}
                         </div>
                     </div>
-                    ${!isCashier ? `<div class="mt-2 pt-2 border-top small text-muted">Cost: Rs. ${parseFloat(p.cost || 0).toFixed(2)}</div>` : ''}
+                    ${p.supplier_name ? `<div class="mt-1 small text-muted">Supplier: ${p.supplier_name}</div>` : ''}
+                    ${!isCashier ? `<div class="mt-1 pt-1 border-top small text-muted">Cost: Rs. ${parseFloat(p.cost || 0).toFixed(2)}</div>` : ''}
                     ${actionsHtml}
                 `;
                 mobileContainer.appendChild(card);
@@ -584,11 +652,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         function openAddModal() {
             document.getElementById('productForm').reset();
             document.getElementById('productId').value = '';
+            document.getElementById('prodCategory').value = '';
+            document.getElementById('prodSupplier').value = '';
             document.getElementById('modalTitle').textContent = 'Add Product';
             document.getElementById('prodStatus').value = 'Active'; 
             productModal.show();
         }
-
+ 
         window.editProduct = function(p) {
             document.getElementById('productId').value = p.product_id;
             document.getElementById('prodName').value = p.name;
@@ -596,6 +666,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             document.getElementById('prodCode').value = p.product_code;
             document.getElementById('prodPrice').value = p.price;
             document.getElementById('prodCost').value = p.cost;
+            document.getElementById('prodCategory').value = p.category_id || '';
+            document.getElementById('prodSupplier').value = p.supplier_id || '';
             document.getElementById('prodQty').value = p.quantity;
             document.getElementById('prodStatus').value = p.status || 'Active'; 
             document.getElementById('modalTitle').textContent = 'Edit Product';
@@ -614,6 +686,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 product_code: document.getElementById('prodCode').value,
                 price: document.getElementById('prodPrice').value,
                 cost: document.getElementById('prodCost').value,
+                category_id: document.getElementById('prodCategory').value,
+                supplier_id: document.getElementById('prodSupplier').value,
                 quantity: document.getElementById('prodQty').value,
                 status: document.getElementById('prodStatus').value 
             };

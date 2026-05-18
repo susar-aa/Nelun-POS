@@ -15,6 +15,80 @@ require_once 'db_connection.php';
 // Prevent PHP execution timeout during transaction
 set_time_limit(60); 
 
+// Helper function to process sale item using FIFO batch allocation
+function processFIFOSaleItem($pdo, $sale_id, $pid, $pName, $qty, $price, $total) {
+    if (empty($pid) || strpos($pid, 'GEN-') !== false || !is_numeric($pid)) {
+        // Non-inventory general item
+        $stmtItem = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, item_total, cost_price, batch_id) VALUES (?, ?, ?, ?, ?, ?, 0.00, NULL)");
+        $stmtItem->execute([$sale_id, $pid, $pName, $qty, $price, $total]);
+        return;
+    }
+
+    $required_qty = $qty;
+
+    // Get active batches for product sorted by oldest first
+    $stmtBatches = $pdo->prepare("SELECT batch_id, quantity_remaining, cost_price FROM product_batches WHERE product_id = ? AND status = 'Active' AND quantity_remaining > 0 ORDER BY created_at ASC");
+    $stmtBatches->execute([$pid]);
+    $batches = $stmtBatches->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmtInsertItem = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, item_total, cost_price, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmtUpdateBatch = $pdo->prepare("UPDATE product_batches SET quantity_remaining = ?, status = ? WHERE batch_id = ?");
+    $stmtUpdateStock = $pdo->prepare("UPDATE Products SET quantity = quantity - ? WHERE product_id = ?");
+
+    if (empty($batches)) {
+        // Fallback: No batches exist. Fetch general cost from Products
+        $stmtCost = $pdo->prepare("SELECT cost FROM Products WHERE product_id = ?");
+        $stmtCost->execute([$pid]);
+        $prodCost = (float)$stmtCost->fetchColumn();
+
+        $stmtInsertItem->execute([$sale_id, $pid, $pName, $qty, $price, $total, $prodCost, null]);
+        $stmtUpdateStock->execute([$qty, $pid]);
+        return;
+    }
+
+    foreach ($batches as $batch) {
+        if ($required_qty <= 0) break;
+
+        $batch_id = $batch['batch_id'];
+        $avail = (int)$batch['quantity_remaining'];
+        $cost = (float)$batch['cost_price'];
+
+        if ($avail >= $required_qty) {
+            $new_avail = $avail - $required_qty;
+            $status = ($new_avail == 0) ? 'Depleted' : 'Active';
+            $stmtUpdateBatch->execute([$new_avail, $status, $batch_id]);
+
+            // Proportional item total fraction
+            $fraction_total = $required_qty * $price;
+
+            $stmtInsertItem->execute([$sale_id, $pid, $pName, $required_qty, $price, $fraction_total, $cost, $batch_id]);
+            $stmtUpdateStock->execute([$required_qty, $pid]);
+
+            $required_qty = 0;
+        } else {
+            $stmtUpdateBatch->execute([0, 'Depleted', $batch_id]);
+
+            $fraction_total = $avail * $price;
+
+            $stmtInsertItem->execute([$sale_id, $pid, $pName, $avail, $price, $fraction_total, $cost, $batch_id]);
+            $stmtUpdateStock->execute([$avail, $pid]);
+
+            $required_qty -= $avail;
+        }
+    }
+
+    // In case stock is negative or exceeds available batches
+    if ($required_qty > 0) {
+        $stmtCost = $pdo->prepare("SELECT cost FROM Products WHERE product_id = ?");
+        $stmtCost->execute([$pid]);
+        $prodCost = (float)$stmtCost->fetchColumn();
+
+        $fraction_total = $required_qty * $price;
+        $stmtInsertItem->execute([$sale_id, $pid, $pName, $required_qty, $price, $fraction_total, $prodCost, null]);
+        $stmtUpdateStock->execute([$required_qty, $pid]);
+    }
+}
+
 $action = $_GET['action'] ?? null;
 
 // --- 1. SAVE NEW SALE ---
@@ -76,10 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
         
         $sale_id = $pdo->lastInsertId();
 
-        // 3. Prepare Item Insert
-        $stmtItem = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, item_total) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmtUpdateStock = $pdo->prepare("UPDATE Products SET quantity = quantity - ? WHERE product_id = ?");
-
+        // 3. Save sale items using FIFO costing
         foreach ($saleItemsData as $item) {
             $pid = $item['product_id'];
             $pName = $item['product_name'] ?? 'Unknown Item';
@@ -87,29 +158,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
             $price = $item['price_at_sale'];
             $total = $item['item_total'];
 
-            try {
-                // Try inserting with original Product ID
-                $stmtItem->execute([$sale_id, $pid, $pName, $qty, $price, $total]);
-
-            } catch (PDOException $e) {
-                // Check for Integrity Constraint Violation (23000) specifically Foreign Key (1452)
-                if ($e->getCode() == '23000' || (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1452)) {
-                    // RETRY: Insert with '0' as product_id
-                    try {
-                        $stmtItem->execute([$sale_id, 0, $pName, $qty, $price, $total]);
-                    } catch (PDOException $ex) {
-                        throw new Exception("Failed to save item '$pName' (ID: $pid). DB Error: " . $ex->getMessage());
-                    }
-                } else {
-                    throw $e; 
-                }
-            }
-
-            // Update Stock
             if ($saleData['status'] === 'Complete') {
-                if (!empty($pid) && strpos($pid, 'GEN-') === false && is_numeric($pid)) { 
-                     $stmtUpdateStock->execute([$qty, $pid]);
-                }
+                processFIFOSaleItem($pdo, $sale_id, $pid, $pName, $qty, $price, $total);
+            } else {
+                // If Hold, just insert into sale_items without stock deduction
+                $stmtCost = $pdo->prepare("SELECT cost FROM Products WHERE product_id = ?");
+                $stmtCost->execute([$pid]);
+                $prodCost = (float)$stmtCost->fetchColumn();
+
+                $stmtItem = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, item_total, cost_price, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)");
+                $stmtItem->execute([$sale_id, $pid, $pName, $qty, $price, $total, $prodCost]);
             }
         }
 
@@ -140,14 +198,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
     try {
         $pdo->beginTransaction();
 
-        $stmtOld = $pdo->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
+        $stmtOld = $pdo->prepare("SELECT product_id, quantity, batch_id FROM sale_items WHERE sale_id = ?");
         $stmtOld->execute([$saleId]);
         $oldItems = $stmtOld->fetchAll(PDO::FETCH_ASSOC);
 
         $stmtRestoreStock = $pdo->prepare("UPDATE Products SET quantity = quantity + ? WHERE product_id = ?");
+        $stmtRestoreBatch = $pdo->prepare("UPDATE product_batches SET quantity_remaining = quantity_remaining + ?, status = 'Active' WHERE batch_id = ?");
+        
         foreach ($oldItems as $oldItem) {
             if (strpos($oldItem['product_id'], 'GEN-') === false && is_numeric($oldItem['product_id'])) {
                 $stmtRestoreStock->execute([$oldItem['quantity'], $oldItem['product_id']]);
+                if (!empty($oldItem['batch_id'])) {
+                    $stmtRestoreBatch->execute([$oldItem['quantity'], $oldItem['batch_id']]);
+                }
             }
         }
 
@@ -159,20 +222,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
             $saleData['status'], $saleData['user_id'], $saleId
         ]);
 
-        $stmtInsertItem = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, item_total) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmtDeductStock = $pdo->prepare("UPDATE Products SET quantity = quantity - ? WHERE product_id = ?");
-
         foreach ($saleItemsData as $item) {
             $pid = $item['product_id'];
-            $stmtInsertItem->execute([
-                $saleId, $pid, $item['product_name'] ?? 'Unknown Item',
-                $item['quantity'], $item['price_at_sale'], $item['item_total']
-            ]);
+            $pName = $item['product_name'] ?? 'Unknown Item';
+            $qty = $item['quantity'];
+            $price = $item['price_at_sale'];
+            $total = $item['item_total'];
 
             if ($saleData['status'] === 'Complete') {
-                if (strpos($pid, 'GEN-') === false && is_numeric($pid)) {
-                    $stmtDeductStock->execute([$item['quantity'], $pid]);
-                }
+                processFIFOSaleItem($pdo, $saleId, $pid, $pName, $qty, $price, $total);
+            } else {
+                $stmtCost = $pdo->prepare("SELECT cost FROM Products WHERE product_id = ?");
+                $stmtCost->execute([$pid]);
+                $prodCost = (float)$stmtCost->fetchColumn();
+
+                $stmtItem = $pdo->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price_at_sale, item_total, cost_price, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)");
+                $stmtItem->execute([$saleId, $pid, $pName, $qty, $price, $total, $prodCost]);
             }
         }
 
@@ -198,14 +263,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
     try {
         $pdo->beginTransaction();
 
-        $stmtItems = $pdo->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
+        $stmtItems = $pdo->prepare("SELECT product_id, quantity, batch_id FROM sale_items WHERE sale_id = ?");
         $stmtItems->execute([$saleId]);
         $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
 
         $stmtStock = $pdo->prepare("UPDATE Products SET quantity = quantity + ? WHERE product_id = ?");
+        $stmtRestoreBatch = $pdo->prepare("UPDATE product_batches SET quantity_remaining = quantity_remaining + ?, status = 'Active' WHERE batch_id = ?");
+        
         foreach ($items as $item) {
              if (!empty($item['product_id']) && strpos($item['product_id'], 'GEN-') === false && is_numeric($item['product_id'])) {
                  $stmtStock->execute([$item['quantity'], $item['product_id']]);
+                 if (!empty($item['batch_id'])) {
+                     $stmtRestoreBatch->execute([$item['quantity'], $item['batch_id']]);
+                 }
              }
         }
 
@@ -339,11 +409,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
             $saleData['sale_id']
         ]);
 
-        $stmtUpdateStock = $pdo->prepare("UPDATE Products SET quantity = quantity - ? WHERE product_id = ?");
-        foreach ($saleItemsData as $item) {
-            if (!empty($item['product_id']) && strpos($item['product_id'], 'GEN-') === false && is_numeric($item['product_id'])) {
-                 $stmtUpdateStock->execute([$item['quantity'], $item['product_id']]);
-            }
+        // Fetch original hold items
+        $stmtItems = $pdo->prepare("SELECT product_id, product_name, quantity, price_at_sale, item_total FROM sale_items WHERE sale_id = ?");
+        $stmtItems->execute([$saleData['sale_id']]);
+        $heldItems = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+
+        // Delete hold dummy items and process through FIFO allocation
+        $pdo->prepare("DELETE FROM sale_items WHERE sale_id = ?")->execute([$saleData['sale_id']]);
+        
+        foreach ($heldItems as $item) {
+            processFIFOSaleItem($pdo, $saleData['sale_id'], $item['product_id'], $item['product_name'], $item['quantity'], $item['price_at_sale'], $item['item_total']);
         }
 
         $pdo->commit();
