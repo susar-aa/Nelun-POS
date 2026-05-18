@@ -844,7 +844,13 @@ $po_id_param = $_GET['po_id'] ?? null;
             renderGRNItems();
             recalculateGRN();
         }
+        function recalculateGRN() {
+            let total = 0.00;
+            grnItems.forEach(item => {
+                total += (item.cost_price * item.quantity_received);
+            });
 
+            document.getElementById('lblGRNSub').textContent = total.toLocaleString('en-LK', { minimumFractionDigits: 2 });
             recalculateGRNPayments();
         }
 
