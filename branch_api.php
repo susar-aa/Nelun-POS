@@ -19,8 +19,6 @@ if ($method === 'POST') {
 // 1. Initialize Branch Schema
 if ($action === 'init_schema') {
     try {
-        $pdo->beginTransaction();
-
         $pdo->exec("CREATE TABLE IF NOT EXISTS branches (
             branch_id INT AUTO_INCREMENT PRIMARY KEY,
             branch_name VARCHAR(100) NOT NULL,
@@ -60,17 +58,15 @@ if ($action === 'init_schema') {
             $hash = password_hash('1234', PASSWORD_DEFAULT);
             $pdo->exec("INSERT INTO users (username, password_hash, role, branch_id) VALUES ('admin', '$hash', 'Admin', 1), ('user1', '$hash', 'Branch_User', 2)");
         } else {
-            // Update existing users to Admin and Branch 1 if not set
-            $pdo->exec("UPDATE users SET role = 'Admin', branch_id = 1 WHERE role IS NULL OR branch_id IS NULL");
+            // Force the primary user (ID 1) to be an Admin to prevent lockout
+            $pdo->exec("UPDATE users SET role = 'Admin', branch_id = 1 WHERE user_id = 1 OR role = 'Branch_User'");
         }
         
         // Update existing sales to Branch 1 if not set
         $pdo->exec("UPDATE sales SET branch_id = 1 WHERE branch_id IS NULL");
 
-        $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Branch schema initialized successfully.']);
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit;
