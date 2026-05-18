@@ -23,6 +23,16 @@ if ($method === 'POST') {
     $action = $input_data['action'] ?? null;
 }
 
+// --- STRICT MODIFICATION: Server-Side Branch Isolation Enforcement ---
+// If the logged-in user is staff (Branch_User), silently overwrite any client-requested branch filters.
+// This guarantees they can NEVER query data from other branches using Postman or browser console hacks.
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'Branch_User') {
+    $_GET['branch_id'] = $_SESSION['branch_id'] ?? null;
+    if (is_array($input_data)) {
+        $input_data['branch_id'] = $_SESSION['branch_id'] ?? null;
+    }
+}
+
 // Helper: Validate or Fallback User ID
 function getValidUserId($pdo, $requestedUserId) {
     // 1. Check if requested user exists
@@ -221,7 +231,7 @@ elseif ($method === 'POST' && $action === 'add_cash_in') {
         respondWithError("Invalid amount or user ID.", 400);
     }
     
-    $user_id = getValidUserId($pdo, $user_id); // FIX: Validate User ID
+    $user_id = getValidUserId($pdo, $user_id);
 
     try {
         $stmt = $pdo->prepare("INSERT INTO cash_drawer_transactions (user_id, amount, type, description, transaction_date, transaction_time) VALUES (?, ?, 'Cash In', ?, CURDATE(), CURTIME())");
@@ -242,7 +252,7 @@ elseif ($method === 'POST' && $action === 'add_cash_out') {
         respondWithError("Invalid amount or user ID.", 400);
     }
 
-    $user_id = getValidUserId($pdo, $user_id); // FIX: Validate User ID
+    $user_id = getValidUserId($pdo, $user_id);
 
     try {
         $stmt = $pdo->prepare("INSERT INTO cash_drawer_transactions (user_id, amount, type, description, transaction_date, transaction_time) VALUES (?, ?, 'Cash Out', ?, CURDATE(), CURTIME())");
@@ -263,7 +273,7 @@ elseif ($method === 'POST' && $action === 'add_expense') {
         respondWithError("Invalid expense data.", 400);
     }
 
-    $user_id = getValidUserId($pdo, $user_id); // FIX: Validate User ID
+    $user_id = getValidUserId($pdo, $user_id); 
 
     try {
         $stmt = $pdo->prepare("INSERT INTO expenses (user_id, amount, description, expense_date, expense_time) VALUES (?, ?, ?, CURDATE(), CURTIME())");

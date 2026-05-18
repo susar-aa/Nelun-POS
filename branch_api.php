@@ -99,7 +99,7 @@ if ($action === 'login') {
                 exit;
             }
 
-            // Verify password (proper hash check only — no backdoors)
+            // Verify password
             $db_pass = $u['password_hash'] ?? '';
             $valid = password_verify($pass, $db_pass);
             
@@ -109,6 +109,12 @@ if ($action === 'login') {
             }
             
             if ($valid) {
+                // --- STRICT MODIFICATION: Register Secure Session Constraints ---
+                $_SESSION['user_id'] = $u['user_id'];
+                $_SESSION['username'] = $u['username'];
+                $_SESSION['role'] = $u['role'];
+                $_SESSION['branch_id'] = $u['branch_id'];
+                
                 echo json_encode([
                     'success' => true, 
                     'user' => [
