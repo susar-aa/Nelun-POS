@@ -347,11 +347,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-6 mb-3">
+                            <div class="col-4 mb-3">
                                 <label class="form-label">Quantity</label>
                                 <input type="number" class="form-control" id="prodQty" required>
                             </div>
-                            <div class="col-6 mb-3">
+                            <div class="col-4 mb-3">
+                                <label class="form-label">Reorder Level</label>
+                                <input type="number" class="form-control" id="prodReorder" value="10" required>
+                            </div>
+                            <div class="col-4 mb-3">
                                 <label class="form-label">Status</label>
                                 <select id="prodStatus" class="form-select">
                                     <option value="Active">Active</option>
@@ -654,6 +658,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             document.getElementById('productId').value = '';
             document.getElementById('prodCategory').value = '';
             document.getElementById('prodSupplier').value = '';
+            document.getElementById('prodReorder').value = '10';
             document.getElementById('modalTitle').textContent = 'Add Product';
             document.getElementById('prodStatus').value = 'Active'; 
             productModal.show();
@@ -669,6 +674,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             document.getElementById('prodCategory').value = p.category_id || '';
             document.getElementById('prodSupplier').value = p.supplier_id || '';
             document.getElementById('prodQty').value = p.quantity;
+            document.getElementById('prodReorder').value = p.reorder_level ?? 10;
             document.getElementById('prodStatus').value = p.status || 'Active'; 
             document.getElementById('modalTitle').textContent = 'Edit Product';
             productModal.show();
@@ -689,6 +695,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 category_id: document.getElementById('prodCategory').value,
                 supplier_id: document.getElementById('prodSupplier').value,
                 quantity: document.getElementById('prodQty').value,
+                reorder_level: document.getElementById('prodReorder').value,
                 status: document.getElementById('prodStatus').value 
             };
 

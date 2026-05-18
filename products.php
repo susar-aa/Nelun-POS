@@ -52,7 +52,7 @@ elseif ($action === 'getProductsPaginated') {
         $offset = ($page - 1) * $limit;
 
         // Base SQL
-        $sql = "SELECT p.product_id, p.name, p.item_code, p.product_code, p.quantity, p.price, p.cost, p.status, p.category_id, p.supplier_id, c.name as category_name, s.name as supplier_name FROM Products p LEFT JOIN categories c ON p.category_id = c.category_id LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id WHERE 1=1";
+        $sql = "SELECT p.product_id, p.name, p.item_code, p.product_code, p.quantity, p.price, p.cost, p.status, p.reorder_level, p.category_id, p.supplier_id, c.name as category_name, s.name as supplier_name FROM Products p LEFT JOIN categories c ON p.category_id = c.category_id LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id WHERE 1=1";
         $countSql = "SELECT COUNT(*) as total FROM Products p WHERE 1=1";
         $params = [];
 
@@ -164,7 +164,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveGeneralProduct
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addProduct') {
     $input = json_decode(file_get_contents('php://input'), true);
     try {
-        $stmt = $pdo->prepare("INSERT INTO Products (name, item_code, product_code, price, cost, quantity, status, category_id, supplier_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO Products (name, item_code, product_code, price, cost, quantity, status, category_id, supplier_id, reorder_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
         $code = !empty($input['product_code']) ? $input['product_code'] : str_pad(mt_rand(1,99999999), 8, '0', STR_PAD_LEFT);
         $status = $input['status'] ?? 'Active';
@@ -178,7 +178,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addProduct') {
             $input['quantity'],
             $status,
             !empty($input['category_id']) ? (int)$input['category_id'] : null,
-            !empty($input['supplier_id']) ? (int)$input['supplier_id'] : null
+            !empty($input['supplier_id']) ? (int)$input['supplier_id'] : null,
+            isset($input['reorder_level']) ? (int)$input['reorder_level'] : 10
         ]);
         echo json_encode(["success" => true, "message" => "Product added."]);
     } catch (PDOException $e) {
@@ -188,7 +189,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addProduct') {
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'updateProduct') {
     $input = json_decode(file_get_contents('php://input'), true);
     try {
-        $stmt = $pdo->prepare("UPDATE Products SET name=?, item_code=?, product_code=?, price=?, cost=?, quantity=?, status=?, category_id=?, supplier_id=? WHERE product_id=?");
+        $stmt = $pdo->prepare("UPDATE Products SET name=?, item_code=?, product_code=?, price=?, cost=?, quantity=?, status=?, category_id=?, supplier_id=?, reorder_level=? WHERE product_id=?");
         $stmt->execute([
             $input['name'],
             $input['item_code'],
@@ -199,6 +200,7 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'updateProduct') {
             $input['status'],
             !empty($input['category_id']) ? (int)$input['category_id'] : null,
             !empty($input['supplier_id']) ? (int)$input['supplier_id'] : null,
+            isset($input['reorder_level']) ? (int)$input['reorder_level'] : 10,
             $input['product_id']
         ]);
         echo json_encode(["success" => true, "message" => "Product updated."]);

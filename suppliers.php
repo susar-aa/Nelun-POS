@@ -174,6 +174,7 @@ if ($is_api) {
         $method = $input['payment_method'] ?? 'Cash';
         $cheque_number = trim($input['cheque_number'] ?? '');
         $cheque_date = !empty($input['cheque_date']) ? $input['cheque_date'] : null;
+        $bank_details = trim($input['bank_name'] ?? '');
         $notes = trim($input['notes'] ?? '');
         $user_id = $input['user_id'] ?? 1;
 
@@ -187,13 +188,25 @@ if ($is_api) {
 
             // Insert Payment
             $stmtPay = $pdo->prepare("
-                INSERT INTO supplier_payments (supplier_id, payment_date, amount, payment_method, cheque_number, cheque_date, cheque_status, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO supplier_payments (supplier_id, payment_date, amount, payment_method, cheque_number, cheque_date, cheque_status, bank_details, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $cheque_status = ($method === 'Cheque') ? 'Pending' : null;
-            $stmtPay->execute([$supplier_id, $payment_date, $amount, $method, $cheque_number, $cheque_date, $cheque_status, $notes, $user_id]);
+            $stmtPay->execute([$supplier_id, $payment_date, $amount, $method, $cheque_number, $cheque_date, $cheque_status, $bank_details, $notes, $user_id]);
             $payment_id = $pdo->lastInsertId();
+
+            if ($method === 'Cheque') {
+                $stmtSupName = $pdo->prepare("SELECT name FROM suppliers WHERE supplier_id = ?");
+                $stmtSupName->execute([$supplier_id]);
+                $supName = $stmtSupName->fetchColumn();
+
+                $stmtCheque = $pdo->prepare("
+                    INSERT INTO cheques (type, payee_payer_name, bank_name, cheque_number, banking_date, amount, status, reference_id)
+                    VALUES ('Issued', ?, ?, ?, ?, ?, 'Pending', ?)
+                ");
+                $stmtCheque->execute([$supName, $bank_details, $cheque_number, $cheque_date, $amount, $payment_id]);
+            }
 
             // Calculate current running balance
             $stmtBal = $pdo->prepare("SELECT COALESCE(SUM(credit) - SUM(debit), 0.00) FROM supplier_ledger WHERE supplier_id = ?");
@@ -248,6 +261,10 @@ if ($is_api) {
             // Update Cheque Status
             $stmtUpdatePay = $pdo->prepare("UPDATE supplier_payments SET cheque_status = ? WHERE payment_id = ?");
             $stmtUpdatePay->execute([$new_status, $payment_id]);
+
+            // Update Central Cheques Table
+            $stmtUpdateCentralChq = $pdo->prepare("UPDATE cheques SET status = ? WHERE reference_id = ? AND type = 'Issued'");
+            $stmtUpdateCentralChq->execute([$new_status, $payment_id]);
 
             if ($new_status === 'Returned') {
                 // If cheque is returned, we must restore the liability owed to the supplier.
@@ -500,12 +517,16 @@ if ($is_api) {
                         </div>
                         <div id="chequeFields" class="d-none">
                             <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label small fw-bold">Cheque Number</label>
-                                    <input type="text" id="payChqNumber" class="form-control" placeholder="6-digit Cheque No.">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label small fw-bold">Bank Name</label>
+                                    <input type="text" id="payBankName" class="form-control" placeholder="e.g. BOC, HNB">
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label small fw-bold">Cheque Date</label>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label small fw-bold">Cheque No.</label>
+                                    <input type="text" id="payChqNumber" class="form-control" placeholder="6-digit">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label small fw-bold">Banking Date</label>
                                     <input type="date" id="payChqDate" class="form-control">
                                 </div>
                             </div>
@@ -745,10 +766,12 @@ if ($is_api) {
             const fields = document.getElementById('chequeFields');
             if(method === 'Cheque') {
                 fields.className = 'd-block';
+                document.getElementById('payBankName').required = true;
                 document.getElementById('payChqNumber').required = true;
                 document.getElementById('payChqDate').required = true;
             } else {
                 fields.className = 'd-none';
+                document.getElementById('payBankName').required = false;
                 document.getElementById('payChqNumber').required = false;
                 document.getElementById('payChqDate').required = false;
             }
@@ -762,6 +785,7 @@ if ($is_api) {
                 amount: document.getElementById('payAmount').value,
                 payment_method: document.getElementById('payMethod').value,
                 payment_date: document.getElementById('payDate').value,
+                bank_name: document.getElementById('payBankName').value,
                 cheque_number: document.getElementById('payChqNumber').value,
                 cheque_date: document.getElementById('payChqDate').value,
                 notes: document.getElementById('payNotes').value,
