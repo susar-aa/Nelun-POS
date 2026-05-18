@@ -304,10 +304,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveSale') {
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20; 
     $offset = ($page - 1) * $limit;
-
+    $branchId = $_GET['branch_id'] ?? 'all';
+ 
     try {
         $baseSql = "FROM sales s LEFT JOIN users u ON s.user_id = u.user_id WHERE s.status = 'Complete'";
         $params = [];
+
+        if ($branchId !== 'all' && $branchId !== '') {
+            $baseSql .= " AND s.branch_id = ?";
+            $params[] = intval($branchId);
+        }
         
         if (!empty($searchId)) {
             $baseSql .= " AND s.sale_id = ?";

@@ -62,7 +62,10 @@ if ($is_api_request) {
     switch ($action) {
         case 'GET':
             try {
-                $sql = "SELECT user_id, username, role, status, created_at FROM users ORDER BY user_id ASC";
+                $sql = "SELECT u.user_id, u.username, u.role, u.status, u.created_at, u.branch_id, b.branch_name 
+                        FROM users u 
+                        LEFT JOIN branches b ON u.branch_id = b.branch_id 
+                        ORDER BY u.user_id ASC";
                 $result = $conn->query($sql);
                 if ($result) {
                     $users = [];
@@ -71,18 +74,22 @@ if ($is_api_request) {
                     }
                     $response = ['success' => true, 'users' => $users];
                 } else {
-                    $response = ['success' => false, 'message' => 'Failed to retrieve users.'];
+                    $response = ['success' => false, 'message' => 'Failed to retrieve users: ' . $conn->error];
                 }
             } catch (Exception $e) {
-                $response = ['success' => false, 'message' => 'Server error during user fetch.'];
+                $response = ['success' => false, 'message' => 'Server error during user fetch: ' . $e->getMessage()];
             }
             break;
 
         case 'add_user':
             $username = $data['username'] ?? '';
             $password = $data['password'] ?? '';
-            $role = $data['role'] ?? 'cashier';
+            $role = $data['role'] ?? 'Branch_User';
             $status = $data['status'] ?? 'Active';
+            $branch_id = !empty($data['branch_id']) ? intval($data['branch_id']) : null;
+
+            // Map lowercase role choices to production ENUM values
+            $role_mapped = (strtolower($role) === 'admin') ? 'Admin' : 'Branch_User';
 
             if (empty($username) || empty($password)) {
                 $response = ['success' => false, 'message' => 'Username and password are required.'];
@@ -103,8 +110,8 @@ if ($is_api_request) {
                 }
                 $stmt->close();
 
-                $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("ssss", $username, $password_hash, $role, $status);
+                $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, status, branch_id) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssi", $username, $password_hash, $role_mapped, $status, $branch_id);
 
                 if ($stmt->execute()) {
                     $response = ['success' => true, 'message' => 'User added successfully!'];
@@ -122,8 +129,12 @@ if ($is_api_request) {
             $user_id = $data['user_id'] ?? null;
             $username = $data['username'] ?? '';
             $password = $data['password'] ?? null;
-            $role = $data['role'] ?? 'cashier';
+            $role = $data['role'] ?? 'Branch_User';
             $status = $data['status'] ?? 'Active';
+            $branch_id = !empty($data['branch_id']) ? intval($data['branch_id']) : null;
+
+            // Map lowercase role choices to production ENUM values
+            $role_mapped = (strtolower($role) === 'admin') ? 'Admin' : 'Branch_User';
 
             if (empty($user_id) || empty($username)) {
                 $response = ['success' => false, 'message' => 'User ID and username required.'];
@@ -131,9 +142,9 @@ if ($is_api_request) {
             }
 
             try {
-                $sql = "UPDATE users SET username = ?, role = ?, status = ?";
-                $params = [$username, $role, $status];
-                $types = "sss";
+                $sql = "UPDATE users SET username = ?, role = ?, status = ?, branch_id = ?";
+                $params = [$username, $role_mapped, $status, $branch_id];
+                $types = "sssi";
 
                 if ($password !== null && $password !== '') {
                     $password_hash = password_hash($password, PASSWORD_DEFAULT);
@@ -147,16 +158,24 @@ if ($is_api_request) {
                 $types .= "i";
 
                 $stmt = $conn->prepare($sql);
-                call_user_func_array([$stmt, 'bind_param'], array_merge([$types], $params));
+                
+                // Construct parameters array with references
+                $bind_params = array();
+                $bind_params[] = &$types;
+                for ($i = 0; $i < count($params); $i++) {
+                    $bind_params[] = &$params[$i];
+                }
+                
+                call_user_func_array([$stmt, 'bind_param'], $bind_params);
 
                 if ($stmt->execute()) {
                     $response = ['success' => true, 'message' => 'User updated successfully!'];
                 } else {
-                    $response = ['success' => false, 'message' => 'Failed to update user.'];
+                    $response = ['success' => false, 'message' => 'Failed to update user: ' . $stmt->error];
                 }
                 $stmt->close();
             } catch (Exception $e) {
-                $response = ['success' => false, 'message' => 'Server error during update.'];
+                $response = ['success' => false, 'message' => 'Server error during update: ' . $e->getMessage()];
             }
             break;
 
@@ -245,13 +264,14 @@ if ($is_api_request) {
                             <th>ID</th>
                             <th>Username</th>
                             <th>Role</th>
+                            <th>Assigned Branch</th>
                             <th>Status</th>
                             <th>Created At</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersTableBody">
-                        <tr><td colspan="6" class="text-center text-muted">Loading users...</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted">Loading users...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -280,8 +300,14 @@ if ($is_api_request) {
                         <div class="mb-3">
                             <label for="role" class="form-label">Role</label>
                             <select class="form-select" id="role">
-                                <option value="cashier">Cashier</option>
-                                <option value="admin">Admin</option>
+                                <option value="Branch_User">Branch User (Staff)</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userBranch" class="form-label">Assigned Branch</label>
+                            <select class="form-select" id="userBranch">
+                                <option value="">-- No Branch Assigned --</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -343,15 +369,19 @@ if ($is_api_request) {
 
             function renderUsers(users) {
                 if (users.length === 0) {
-                    usersTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No users found.</td></tr>';
+                    usersTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No users found.</td></tr>';
                     return;
                 }
 
-                usersTableBody.innerHTML = users.map(user => `
+                usersTableBody.innerHTML = users.map(user => {
+                    const displayRole = user.role.toLowerCase() === 'admin' ? 'Admin' : 'Branch Staff';
+                    const roleBadge = user.role.toLowerCase() === 'admin' ? 'bg-danger' : 'bg-primary';
+                    return `
                     <tr>
                         <td>${user.user_id}</td>
                         <td><strong>${user.username}</strong></td>
-                        <td><span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-primary'}">${user.role}</span></td>
+                        <td><span class="badge ${roleBadge}">${displayRole}</span></td>
+                        <td><span class="badge bg-light text-dark border"><i class="bi bi-shop me-1 text-secondary"></i>${user.branch_name || 'Global (All Branches)'}</span></td>
                         <td><span class="badge ${user.status === 'Active' ? 'bg-success' : 'bg-secondary'}">${user.status}</span></td>
                         <td><small class="text-muted">${user.created_at}</small></td>
                         <td class="text-end">
@@ -363,7 +393,28 @@ if ($is_api_request) {
                             </button>
                         </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
+            }
+
+            // --- Load Branches Dropdown ---
+            let activeBranches = [];
+            async function fetchBranches() {
+                try {
+                    const res = await fetch('branch_api.php?action=get_branches');
+                    const data = await res.json();
+                    if (data.success) {
+                        activeBranches = data.branches;
+                        const userBranchSelect = document.getElementById('userBranch');
+                        
+                        // Clear but keep first option
+                        userBranchSelect.innerHTML = '<option value="">-- No Branch Assigned --</option>';
+                        activeBranches.forEach(b => {
+                            const option = new Option(b.branch_name, b.branch_id);
+                            userBranchSelect.add(option);
+                        });
+                    }
+                } catch(e) { console.error('Failed to load branches dropdown', e); }
             }
 
             // --- Open Modal (Add Mode) ---
@@ -373,12 +424,13 @@ if ($is_api_request) {
                 document.getElementById('username').value = '';
                 document.getElementById('password').value = '';
                 document.getElementById('password').required = true; // Password required for new user
-                document.getElementById('role').value = 'cashier';
+                document.getElementById('role').value = 'Branch_User';
+                document.getElementById('userBranch').value = '';
                 document.getElementById('status').value = 'Active';
                 formMessageDiv.classList.add('d-none');
                 userModal.show();
             };
-
+ 
             // --- Open Modal (Edit Mode) ---
             window.editUser = (user) => {
                 document.getElementById('userModalLabel').textContent = 'Edit User';
@@ -386,7 +438,8 @@ if ($is_api_request) {
                 document.getElementById('username').value = user.username;
                 document.getElementById('password').value = ''; 
                 document.getElementById('password').required = false; // Optional for edit
-                document.getElementById('role').value = user.role;
+                document.getElementById('role').value = user.role.toLowerCase() === 'admin' ? 'Admin' : 'Branch_User';
+                document.getElementById('userBranch').value = user.branch_id || '';
                 document.getElementById('status').value = user.status;
                 formMessageDiv.classList.add('d-none');
                 userModal.show();
@@ -400,6 +453,7 @@ if ($is_api_request) {
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 const role = document.getElementById('role').value;
+                const branchId = document.getElementById('userBranch').value;
                 const status = document.getElementById('status').value;
                 
                 const action = userId ? 'update_user' : 'add_user';
@@ -410,6 +464,7 @@ if ($is_api_request) {
                     username: username,
                     password: password,
                     role: role,
+                    branch_id: branchId,
                     status: status
                 };
 
@@ -469,6 +524,7 @@ if ($is_api_request) {
             }
 
             // --- Initial Load ---
+            fetchBranches();
             fetchUsers();
         });
     </script>
