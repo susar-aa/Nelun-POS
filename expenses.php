@@ -1,6 +1,6 @@
 <?php
 // expenses.php
-// Expense Management for Falcon POS
+// Expense Management for Nelun POS
 // Handles fetching, adding, updating, deleting, and exporting expenses.
 
 header('Access-Control-Allow-Origin: *');

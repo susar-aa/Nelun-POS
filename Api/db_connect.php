@@ -1,5 +1,5 @@
 <?php
-// db_connect.php - Centralized database connection for Falcon POS System API
+// db_connect.php - Centralized database connection for Nelun POS System API
 
 // Database connection details
 $host = 'localhost';

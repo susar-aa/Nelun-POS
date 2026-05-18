@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // UPDATED CREDENTIALS FOR PRODUCTION
 $host = 'localhost';
 $port = '3306';
-$dbname = 'Falcon-POS-System';
+$dbname = 'Nelun_db';
 $username_db = 'suzxlabs'; // Updated username
 $password_db = 'Susara@200611003614'; // Updated password
 

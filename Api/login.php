@@ -1,6 +1,6 @@
 <?php 
 // login.php - Backend API for user authentication 
-// Path: https://falconpos.suzxlabs.com/Falcon_POS_System/Api/login.php 
+// Path: https://nelun.suzxlabs.com/Api/login.php 
 
 // Set headers for JSON response and CORS 
 header('Content-Type: application/json'); 
@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Database connection details 
 $host = 'localhost'; 
 $port = '3306'; 
-$dbname = 'Falcon-POS-System'; 
+$dbname = 'Nelun_db'; 
 $username_db = 'suzxlabs';
 $password_db = 'Susara@200611003614';
 

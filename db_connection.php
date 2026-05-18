@@ -35,7 +35,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // 4. Database Connection (UPDATED WITH YOUR CREDENTIALS)
 $host = 'localhost';
 $port = '3306';
-$db   = 'Falcon-POS-System';
+$db   = 'Nelun_db';
 $user = 'suzxlabs';
 $pass = 'Susara@200611003614';
 $charset = 'utf8mb4';

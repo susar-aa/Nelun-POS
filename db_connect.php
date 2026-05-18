@@ -1,10 +1,10 @@
 <?php
-// db_connect.php - Centralized database connection for Falcon POS System API
+// db_connect.php - Centralized database connection for Nelun POS System API
 
 // Database connection details
 $host = 'localhost';
 $port = '3306';
-$dbname = 'Falcon-POS-System';
+$dbname = 'Nelun_db';
 $username_db = 'suzxlabs';
 $password_db = 'Susara@200611003614';
 
