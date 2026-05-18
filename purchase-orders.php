@@ -1014,24 +1014,24 @@ if ($is_api) {
             setTimeout(() => div.remove(), 3000);
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            function downloadPOPDF() {
-                const poId = document.getElementById('inputId').value;
-                if(!poId) {
-                    showAlert('Please save the PO first to generate a PDF.', 'warning');
-                    return;
-                }
-                viewDetails(poId);
-                setTimeout(() => {
-                    const printContent = document.getElementById('modalPrintArea').innerHTML;
-                    const printWin = window.open('', '_blank');
-                    printWin.document.write(`<html><head><title>Nelun POS - Purchase Order</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body style="padding:40px;"><h2>Purchase Order</h2><hr>${printContent}</body></html>`);
-                    printWin.document.close();
-                    printWin.focus();
-                    setTimeout(() => { printWin.print(); printWin.close(); }, 500);
-                }, 600);
+        window.downloadPOPDF = function() {
+            const poId = document.getElementById('inputId').value;
+            if(!poId) {
+                showAlert('Please save the PO first to generate a PDF.', 'warning');
+                return;
             }
+            viewDetails(poId);
+            setTimeout(() => {
+                const printContent = document.getElementById('modalPrintArea').innerHTML;
+                const printWin = window.open('', '_blank');
+                printWin.document.write(`<html><head><title>Nelun POS - Purchase Order</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body style="padding:40px;"><h2>Purchase Order</h2><hr>${printContent}</body></html>`);
+                printWin.document.close();
+                printWin.focus();
+                setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+            }, 600);
+        }
 
+        document.addEventListener('DOMContentLoaded', () => {
             loadConfig();
             fetchPOs();
         });
