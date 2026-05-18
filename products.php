@@ -145,6 +145,27 @@ elseif ($action === 'searchProducts') {
         echo json_encode(["success" => false, "message" => "Error searching products: " . $e->getMessage()]);
     }
 } 
+// --- 5. GET LOW STOCK PRODUCTS (Uses per-product reorder_level) ---
+elseif ($action === 'getLowStock') {
+    try {
+        $stmt = $pdo->query("
+            SELECT p.product_id, p.name, p.item_code, p.product_code, 
+                   p.quantity, p.cost, p.price, p.reorder_level,
+                   c.name as category_name, s.name as supplier_name
+            FROM Products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            WHERE p.status = 'Active'
+              AND p.quantity <= p.reorder_level
+            ORDER BY p.quantity ASC, p.name ASC
+        ");
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(["success" => true, "products" => $products, "count" => count($products)]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Error fetching low stock: " . $e->getMessage()]);
+    }
+}
 // --- CRUD Operations (Save/Update/Delete) ---
 elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'saveGeneralProduct') {
     $input = json_decode(file_get_contents('php://input'), true);

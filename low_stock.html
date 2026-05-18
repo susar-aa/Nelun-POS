@@ -20,7 +20,7 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h2 class="fw-bold text-danger mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Low Stock Alert</h2>
-                <p class="text-muted small mb-0">Products with stock level 3 or less.</p>
+                <p class="text-muted small mb-0">Products at or below their configured reorder level.</p>
             </div>
             <button class="btn btn-outline-success" onclick="exportLowStock()"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</button>
         </div>
@@ -53,6 +53,7 @@
                                 <th>Product Name</th>
                                 <th>Barcode</th>
                                 <th>Cost (LKR)</th>
+                                <th>Reorder Level</th>
                                 <th>Stock Level</th>
                                 <th class="text-end">Action</th>
                             </tr>
@@ -126,7 +127,8 @@
 
             items.forEach(item => {
                 const stock = parseInt(item.quantity);
-                const badgeClass = stock === 0 ? 'badge-critical' : 'badge-warning';
+                const reorderLevel = parseInt(item.reorder_level) || 10;
+                const badgeClass = stock === 0 ? 'badge-critical' : (stock <= Math.floor(reorderLevel / 2) ? 'badge-critical' : 'badge-warning');
                 const statusText = stock === 0 ? 'Out of Stock' : 'Low Stock';
                 const cost = parseFloat(item.cost || 0).toFixed(2);
 
@@ -136,6 +138,7 @@
                     <td class="fw-bold text-dark">${item.name}</td>
                     <td class="text-muted small">${item.product_code}</td>
                     <td>Rs. ${cost}</td>
+                    <td><span class="badge bg-secondary bg-opacity-25 text-dark border">${reorderLevel}</span></td>
                     <td>
                         <span class="badge ${badgeClass} fs-6">${stock}</span>
                         <small class="text-muted d-block" style="font-size:0.75rem">${statusText}</small>
