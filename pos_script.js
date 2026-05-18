@@ -31,6 +31,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return; 
     }
 
+    // Set branch badge in POS header navbar
+    const branchBadge = document.getElementById('posBranchBadge');
+    if (branchBadge) {
+        const bName = localStorage.getItem('branch_name') || 'Nelun Main Branch';
+        branchBadge.textContent = bName;
+    }
+
     // --- DOM Elements ---
     const productSearchInput = document.getElementById('productSearchInput');
     const productSearchResults = document.getElementById('productSearchResults');
