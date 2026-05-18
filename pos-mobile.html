@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Falcon Mobile POS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            padding-bottom: 100px; /* Increased space for bottom nav */
+            overscroll-behavior-y: none;
+        }
+        .header {
+            background: white;
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .search-container {
+            position: relative;
+        }
+        .product-list {
+            padding: 15px;
+        }
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            transition: transform 0.1s;
+            border: 1px solid #eee;
+            cursor: pointer; /* Added cursor */
+        }
+        .product-card:active {
+            transform: scale(0.98);
+            background-color: #f0f0f0;
+        }
+        .stock-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #e9ecef;
+            color: #495057;
+        }
+        .stock-badge.low {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        /* Bottom Navigation / Cart Summary */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-top: 1px solid #eee;
+            padding: 15px;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .cart-total {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        .btn-checkout {
+            background-color: #2c3e50;
+            color: white;
+            border-radius: 10px;
+            padding: 12px 25px;
+            font-weight: 600;
+            border: none;
+        }
+        .btn-checkout:active {
+            background-color: #1a252f;
+        }
+
+        /* Full Screen Cart Modal (Custom) */
+        .cart-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            animation: slideUp 0.3s ease-out;
+        }
+        .cart-modal.active {
+            display: flex;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .cart-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .cart-items {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        .cart-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        /* Ensure alerts are visible */
+        #alertMessageContainer {
+            position: fixed;
+            top: 70px;
+            left: 10px;
+            right: 10px;
+            z-index: 2050;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header & Search -->
+    <div class="header">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="m-0 fw-bold text-primary">Falcon POS</h5>
+            <button class="btn btn-sm btn-outline-danger" id="logoutBtn"><i class="bi bi-box-arrow-right"></i></button>
+        </div>
+        <div class="search-container">
+            <input type="text" class="form-control form-control-lg rounded-pill border-0 bg-light ps-4" 
+                   id="mobileProductSearchInput" placeholder="Scan or Search Product..." autocomplete="off">
+            <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3 text-muted"></i>
+        </div>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="alertMessageContainer"></div>
+
+    <!-- Product List -->
+    <div class="product-list" id="mobileProductList">
+        <div class="text-center text-muted mt-5 pt-5">
+            <i class="bi bi-upc-scan display-1 text-light"></i>
+            <p class="mt-3">Search or Scan to start</p>
+        </div>
+    </div>
+
+    <!-- Bottom Cart Summary -->
+    <div class="bottom-nav">
+        <div>
+            <div class="small text-muted"><span id="cartItemCount">0</span> Items</div>
+            <div class="cart-total">Rs. <span id="mobileSubtotalDisplay">0.00</span></div>
+        </div>
+        <button class="btn-checkout shadow-sm" onclick="openCartModal()">
+            View Bill <i class="bi bi-chevron-up ms-1"></i>
+        </button>
+    </div>
+
+    <!-- Custom Full Screen Cart Modal -->
+    <div class="cart-modal" id="cartModal">
+        <div class="cart-header">
+            <span>Current Bill</span>
+            <button class="btn btn-close" onclick="closeCartModal()"></button>
+        </div>
+        
+        <div class="cart-items" id="mobileCartItemsBody">
+            <!-- Cart items injected here -->
+        </div>
+
+        <div class="cart-footer">
+            <div class="d-flex justify-content-between mb-2">
+                <span>Subtotal</span>
+                <span class="fw-bold">Rs. <span id="cartModalSubtotal">0.00</span></span>
+            </div>
+            <div class="d-flex justify-content-between mb-3 text-success d-none" id="mobileDiscountRow">
+                <span>Discount</span>
+                <span>- Rs. <span id="mobileDiscountAmountDisplay">0.00</span></span>
+            </div>
+            <div class="d-flex justify-content-between mb-4">
+                <span class="h5 m-0">Total</span>
+                <span class="h4 m-0 text-primary fw-bold">Rs. <span id="mobileGrandTotalDisplay">0.00</span></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small text-muted">Amount Received</label>
+                <input type="number" id="mobileAmountReceived" class="form-control form-control-lg fw-bold text-center" placeholder="0.00">
+            </div>
+            <div class="text-center mb-3">
+                <small class="text-muted">Change: <span id="mobileChangeDue" class="fw-bold text-dark">0.00</span></small>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-6">
+                    <button class="btn btn-success w-100 py-3 fw-bold rounded-3" onclick="triggerMainBtn('cashPaymentBtn')">
+                        <i class="bi bi-cash me-1"></i> Cash
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn btn-primary w-100 py-3 fw-bold rounded-3" onclick="triggerMainBtn('cardPaymentBtn')">
+                        <i class="bi bi-credit-card me-1"></i> Card
+                    </button>
+                </div>
+                <div class="col-12 mt-2">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary w-100 py-2 dropdown-toggle" type="button" data-bs-toggle="dropdown">More Options</button>
+                        <ul class="dropdown-menu w-100 text-center">
+                            <li><a class="dropdown-item py-2" href="#" onclick="triggerMainBtn('holdPaymentBtn')">Hold Bill</a></li>
+                            <li><a class="dropdown-item py-2" href="#" onclick="triggerMainBtn('cashPrintBtn')">Cash & Print</a></li>
+                            <li><a class="dropdown-item py-2" href="#" onclick="triggerMainBtn('clearCartBtn')"><span class="text-danger">Clear Cart</span></a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Structures for Logic (Syncs with pos_script.js) -->
+    <div style="display:none !important;">
+        <input id="productSearchInput"> 
+        <ul id="productSearchResults"></ul>
+        <table><tbody id="cartItemsTableBody"></tbody></table>
+        <span id="subtotalDisplay">0.00</span>
+        <span id="discountAmountDisplay">0.00</span>
+        <span id="grandTotalDisplay">0.00</span>
+        <input id="amountReceived">
+        <input id="changeDue">
+        
+        <button id="cashPaymentBtn"></button>
+        <button id="cardPaymentBtn"></button>
+        <button id="holdPaymentBtn"></button>
+        <button id="cashPrintBtn"></button>
+        <button id="cardPrintBtn"></button>
+        <button id="clearCartBtn"></button>
+        <button id="setDiscountBtn"></button>
+        <button id="generalItemBtn"></button>
+        <button id="viewHeldBillsBtn"></button>
+        <button id="returnToDashboardBtn"></button>
+        
+        <div class="modal fade" id="discountModal"></div>
+        <div class="modal fade" id="replenishStockModal"></div>
+        <div class="modal fade" id="generalItemModal"></div>
+        <div class="modal fade" id="heldBillsModal"></div>
+        <div class="modal fade" id="itemDiscountModal"></div>
+        <div class="modal fade" id="editCartItemModal"></div>
+    </div>
+
+    <!-- Product Select Modal (Bootstrap 5) -->
+    <div class="modal fade" id="productSelectModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <h5 class="mb-1" id="modalProductName">Product Name</h5>
+                    <div class="small text-muted mb-4" id="modalProductStockHint">Stock: 10</div>
+                    
+                    <div class="d-flex align-items-center justify-content-center gap-3 mb-4">
+                        <button class="btn btn-outline-secondary rounded-circle" style="width:40px;height:40px" id="decreaseQtyBtn">-</button>
+                        <input type="number" id="modalProductQty" class="form-control text-center fw-bold fs-4 border-0" value="1" style="width:80px">
+                        <button class="btn btn-outline-secondary rounded-circle" style="width:40px;height:40px" id="increaseQtyBtn">+</button>
+                    </div>
+                    
+                    <input type="hidden" id="modalProductPrice">
+                    <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold" id="confirmAddToCartBtn">Add to Bill</button>
+                    <div id="productSelectFormMessage" class="d-none text-danger mt-2 small"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Original Logic Script -->
+    <script src="pos_script.js"></script> 
+    
+    <script>
+        // --- Mobile Logic Extensions ---
+        let mobileProducts = [];
+        let selectedMobileProduct = null; // Stores the product currently in the modal
+        let productModalInstance = null;  // Bootstrap modal instance
+
+        // 1. Initialize Bootstrap Modal
+        document.addEventListener('DOMContentLoaded', () => {
+            productModalInstance = new bootstrap.Modal(document.getElementById('productSelectModal'));
+            loadMobileProducts();
+        });
+
+        // 2. Fetch Products
+        function loadMobileProducts() {
+            fetch('products.php?action=getAllProducts')
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success && Array.isArray(data.products)) {
+                        mobileProducts = data.products;
+                    }
+                })
+                .catch(err => console.error("Mobile product load error", err));
+        }
+
+        // 3. Search Logic
+        const mobileSearchInput = document.getElementById('mobileProductSearchInput');
+        const mobileList = document.getElementById('mobileProductList');
+
+        mobileSearchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            mobileList.innerHTML = '';
+
+            if (query.length === 0) {
+                 mobileList.innerHTML = `
+                    <div class="text-center text-muted mt-5 pt-5">
+                        <i class="bi bi-upc-scan display-1 text-light"></i>
+                        <p class="mt-3">Search or Scan to start</p>
+                    </div>`;
+                 return;
+            }
+
+            if (mobileProducts.length === 0) {
+                mobileList.innerHTML = '<div class="text-center mt-4"><div class="spinner-border text-primary"></div></div>';
+                return;
+            }
+
+            const filtered = mobileProducts.filter(p => 
+                p.name.toLowerCase().includes(query) || 
+                p.product_code.toLowerCase().includes(query)
+            );
+
+            if(filtered.length === 0) {
+                mobileList.innerHTML = '<div class="text-center text-muted mt-4">No products found</div>';
+                return;
+            }
+
+            filtered.slice(0, 50).forEach(product => { 
+                const card = document.createElement('div');
+                card.className = 'product-card d-flex justify-content-between align-items-center';
+                const stockClass = product.quantity < 5 ? 'low' : '';
+                
+                card.innerHTML = `
+                    <div class="pointer-events-none">
+                        <div class="fw-bold text-dark">${product.name}</div>
+                        <div class="d-flex align-items-center mt-1">
+                            <span class="stock-badge ${stockClass} me-2">${product.quantity} in stock</span>
+                            <span class="text-muted small">${product.product_code}</span>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-primary">Rs. ${parseFloat(product.price).toFixed(2)}</div>
+                        <button class="btn btn-sm btn-light text-primary mt-1 border btn-add-mobile"><i class="bi bi-plus-lg"></i> Add</button>
+                    </div>
+                `;
+                
+                // Add Click Listener to the whole card
+                card.addEventListener('click', () => openMobileProductModal(product));
+                mobileList.appendChild(card);
+            });
+        });
+
+        // 4. Open Modal & Button Logic
+        const qtyInput = document.getElementById('modalProductQty');
+
+        function openMobileProductModal(product) {
+            selectedMobileProduct = product; // Save for "Add" button
+            
+            // Reset UI
+            document.getElementById('modalProductName').textContent = product.name;
+            document.getElementById('modalProductStockHint').textContent = `Stock: ${product.quantity}`;
+            document.getElementById('modalProductPrice').value = parseFloat(product.price).toFixed(2);
+            qtyInput.value = 1;
+            
+            // Show Bootstrap Modal
+            productModalInstance.show();
+        }
+
+        // --- Qty Button Listeners ---
+        document.getElementById('increaseQtyBtn').addEventListener('click', () => {
+            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+        });
+
+        document.getElementById('decreaseQtyBtn').addEventListener('click', () => {
+            if(parseInt(qtyInput.value) > 1) {
+                qtyInput.value = parseInt(qtyInput.value) - 1;
+            }
+        });
+
+        // --- Add To Bill Listener (CRITICAL FIX) ---
+        document.getElementById('confirmAddToCartBtn').addEventListener('click', () => {
+            if (!selectedMobileProduct) return;
+
+            const qty = parseInt(qtyInput.value);
+            if (qty < 1) return;
+
+            // Trigger hidden input logic 'qty' times
+            const hiddenInput = document.getElementById('productSearchInput');
+            
+            // We use a small loop to simulate scanning multiple times or simply trigger the backend logic
+            // Since we can't edit pos_script.js, this is the safest "black box" way to add multiple.
+            for (let i = 0; i < qty; i++) {
+                hiddenInput.value = selectedMobileProduct.product_code;
+                hiddenInput.dispatchEvent(new Event('input'));
+                // Some POS scripts listen for 'change' or 'keypress'
+                hiddenInput.dispatchEvent(new Event('change'));
+            }
+
+            // Close modal and reset
+            productModalInstance.hide();
+            selectedMobileProduct = null;
+            
+            // Clear search (optional, improves workflow)
+            mobileSearchInput.value = '';
+            mobileList.innerHTML = `
+                <div class="text-center text-muted mt-5 pt-5">
+                    <i class="bi bi-upc-scan display-1 text-primary"></i>
+                    <p class="mt-3">Item Added!</p>
+                </div>`;
+            setTimeout(() => {
+                if(mobileList.innerText.includes('Item Added')) {
+                     mobileList.innerHTML = `
+                        <div class="text-center text-muted mt-5 pt-5">
+                            <i class="bi bi-upc-scan display-1 text-light"></i>
+                            <p class="mt-3">Search or Scan to start</p>
+                        </div>`;
+                }
+            }, 1500);
+        });
+
+        // 5. Cart Synchronization
+        function openCartModal() {
+            syncMobileCart(); 
+            document.getElementById('cartModal').classList.add('active');
+        }
+
+        function closeCartModal() {
+            document.getElementById('cartModal').classList.remove('active');
+        }
+
+        // Sync Logic using MutationObserver
+        const cartObserver = new MutationObserver(() => {
+            syncMobileCart();
+        });
+        
+        const hiddenCartTable = document.getElementById('cartItemsTableBody');
+        cartObserver.observe(hiddenCartTable, { childList: true, subtree: true });
+        
+        const totalObserver = new MutationObserver(() => {
+            // Sync totals
+            document.getElementById('mobileSubtotalDisplay').textContent = document.getElementById('subtotalDisplay').textContent;
+            document.getElementById('cartModalSubtotal').textContent = document.getElementById('subtotalDisplay').textContent;
+            
+            // Discount
+            const discVal = parseFloat(document.getElementById('discountAmountDisplay').textContent) || 0;
+            document.getElementById('mobileDiscountAmountDisplay').textContent = discVal.toFixed(2);
+            document.getElementById('mobileDiscountRow').classList.toggle('d-none', discVal <= 0);
+
+            document.getElementById('mobileGrandTotalDisplay').textContent = document.getElementById('grandTotalDisplay').textContent;
+            
+            // Sync Input fields
+            document.getElementById('mobileAmountReceived').value = document.getElementById('amountReceived').value;
+            document.getElementById('mobileChangeDue').textContent = document.getElementById('changeDue').value;
+            
+            // Item Count
+            const count = hiddenCartTable.rows.length;
+            const countEl = document.getElementById('cartItemCount');
+            countEl.textContent = count;
+            countEl.className = count > 0 ? 'fw-bold text-primary' : '';
+        });
+        
+        totalObserver.observe(document.getElementById('subtotalDisplay'), { characterData: true, childList: true, subtree: true });
+        totalObserver.observe(document.getElementById('grandTotalDisplay'), { characterData: true, childList: true, subtree: true });
+        totalObserver.observe(document.getElementById('changeDue'), { attributes: true, attributeFilter: ['value'] }); 
+
+        // Interval for value sync
+        setInterval(() => {
+             const mainRec = document.getElementById('amountReceived');
+             const mobRec = document.getElementById('mobileAmountReceived');
+             const mainChange = document.getElementById('changeDue');
+             const mobChange = document.getElementById('mobileChangeDue');
+             
+             if(document.activeElement !== mobRec) {
+                 mobRec.value = mainRec.value;
+             }
+             mobChange.textContent = mainChange.value;
+        }, 200);
+
+        function syncMobileCart() {
+            const container = document.getElementById('mobileCartItemsBody');
+            container.innerHTML = '';
+            
+            const rows = hiddenCartTable.querySelectorAll('tr');
+            if (rows.length === 0 || (rows.length === 1 && rows[0].innerText.includes('No items'))) {
+                container.innerHTML = '<div class="text-center text-muted mt-5">Cart is empty</div>';
+                return;
+            }
+
+            Array.from(rows).forEach((row, index) => {
+                const cells = row.querySelectorAll('td');
+                if(cells.length < 4) return; 
+                
+                const nameDiv = cells[0].querySelector('.fw-bold');
+                const name = nameDiv ? nameDiv.textContent : 'Item';
+                
+                const qtyInput = cells[1].querySelector('input');
+                const qty = qtyInput ? qtyInput.value : 1;
+                
+                const price = cells[2].textContent;
+                const total = cells[3].textContent;
+                
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `
+                    <div class="flex-grow-1">
+                        <div class="fw-bold text-dark">${name}</div>
+                        <div class="text-muted small">
+                            ${qty} x Rs. ${parseFloat(price).toFixed(2)}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="fw-bold me-3">Rs. ${parseFloat(total).toFixed(2)}</span>
+                        <button class="btn btn-sm btn-outline-danger border-0" onclick="removeMobileItem(${index})"><i class="bi bi-trash"></i></button>
+                    </div>
+                `;
+                // Clicking item name triggers edit modal in desktop script
+                div.querySelector('.fw-bold').addEventListener('click', () => {
+                    const editBtn = row.querySelector('.edit-item-btn');
+                    if(editBtn) editBtn.click();
+                });
+                
+                container.appendChild(div);
+            });
+        }
+        
+        window.removeMobileItem = function(index) {
+            const btn = document.querySelectorAll('.remove-item-btn')[index];
+            if(btn) btn.click();
+        }
+
+        // Sync Mobile Amount Input -> Hidden Main Input
+        document.getElementById('mobileAmountReceived').addEventListener('input', function() {
+            const mainInput = document.getElementById('amountReceived');
+            mainInput.value = this.value;
+            mainInput.dispatchEvent(new Event('input')); 
+        });
+
+        window.triggerMainBtn = function(id) {
+            document.getElementById(id).click();
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        });
+
+        // Initial Sync
+        syncMobileCart();
+    </script>
+</body>
+</html>

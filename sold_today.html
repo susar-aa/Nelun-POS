@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Sales Report</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; padding: 20px; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            height: 100%;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-3px); }
+        .icon-circle {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; margin: 0 auto 15px;
+        }
+        .bg-green-light { background-color: #e8f5e9; color: #198754; }
+        .bg-blue-light { background-color: #e3f2fd; color: #0d6efd; }
+        .bg-orange-light { background-color: #fff3e0; color: #fd7e14; }
+        
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #e9ecef;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h2 class="fw-bold text-dark mb-1">Daily Sales Report</h2>
+                <div class="d-flex align-items-center mt-2">
+                    <label for="reportDate" class="me-2 text-muted small">Select Date:</label>
+                    <input type="date" id="reportDate" class="form-control form-control-sm" style="width: auto;">
+                    <button class="btn btn-sm btn-outline-primary ms-2" onclick="fetchData()">
+                        <i class="bi bi-arrow-clockwise"></i> Load
+                    </button>
+                </div>
+            </div>
+            <div>
+                <button class="btn btn-success me-2" onclick="exportSimpleList()">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export Item List
+                </button>
+                <!-- Retained full refresh logic in load button -->
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="icon-circle bg-blue-light"><i class="bi bi-bag-check"></i></div>
+                    <div class="text-muted text-uppercase small fw-bold">Items Sold</div>
+                    <div class="h2 fw-bold text-dark mb-0" id="totalQtyDisplay">0</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="icon-circle bg-green-light"><i class="bi bi-cash-stack"></i></div>
+                    <div class="text-muted text-uppercase small fw-bold">Total Revenue</div>
+                    <div class="h2 fw-bold text-success mb-0" id="totalRevDisplay">Rs. 0.00</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="icon-circle bg-orange-light"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="text-muted text-uppercase small fw-bold">Est. Profit</div>
+                    <div class="h2 fw-bold text-dark mb-0" id="totalProfitDisplay">Rs. 0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter/Search -->
+        <div class="card mb-4 p-3">
+            <div class="d-flex gap-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control border-start-0" id="searchInput" placeholder="Search by Product Name or Code...">
+                </div>
+                <select class="form-select" style="width: auto;" id="itemsPerPage">
+                    <option value="10">10 rows</option>
+                    <option value="20" selected>20 rows</option>
+                    <option value="50">50 rows</option>
+                    <option value="100">100 rows</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 15%">Code</th>
+                                <th style="width: 35%">Product Name</th>
+                                <th class="text-center" style="width: 10%">Sold Qty</th>
+                                <th class="text-end" style="width: 20%">Revenue</th>
+                                <th class="text-end" style="width: 20%">Est. Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody">
+                            <tr><td colspan="5" class="text-center py-5 text-muted">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination Controls -->
+                <div class="pagination-container" id="paginationControls">
+                    <span class="text-muted small" id="pageInfo">Showing 0-0 of 0</span>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item"><button class="page-link" id="prevBtn" onclick="changePage(-1)">Previous</button></li>
+                            <li class="page-item disabled"><span class="page-link text-dark fw-bold" id="currentPageDisplay">1</span></li>
+                            <li class="page-item"><button class="page-link" id="nextBtn" onclick="changePage(1)">Next</button></li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Init Date
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('reportDate').value = todayStr;
+
+        const API_URL = 'reports.php';
+        let fullData = []; // Store all fetched data
+        let filteredData = []; // Store data after search
+        let currentPage = 1;
+        let itemsPerPage = 20;
+
+        document.addEventListener('DOMContentLoaded', fetchData);
+        
+        document.getElementById('searchInput').addEventListener('keyup', () => {
+            currentPage = 1;
+            filterData();
+        });
+        
+        document.getElementById('itemsPerPage').addEventListener('change', (e) => {
+            itemsPerPage = parseInt(e.target.value);
+            currentPage = 1;
+            renderPagination();
+        });
+
+        async function fetchData() {
+            const dateStr = document.getElementById('reportDate').value;
+            const tbody = document.getElementById('reportTableBody');
+            
+            // Show loading state
+            tbody.style.opacity = '0.5';
+
+            try {
+                const res = await fetch(`${API_URL}?action=getProductSales&start=${dateStr}&end=${dateStr}`);
+                const result = await res.json();
+
+                if (result.success) {
+                    fullData = result.data;
+                    filterData(); // This calls renderPagination -> renderTable
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">${result.message}</td></tr>`;
+                    updateTotals(0, 0, 0);
+                }
+            } catch (error) {
+                console.error(error);
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Network Error</td></tr>';
+            } finally {
+                tbody.style.opacity = '1';
+            }
+        }
+
+        function filterData() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            filteredData = fullData.filter(item => 
+                item.product_name.toLowerCase().includes(query) || 
+                (item.product_code && item.product_code.toLowerCase().includes(query))
+            );
+            
+            // Calculate totals based on filtered data (so search results show their own totals)
+            calculateTotals(filteredData);
+            
+            // Render current page
+            renderPagination();
+        }
+
+        function calculateTotals(data) {
+            let totalQty = 0;
+            let totalRev = 0;
+            let totalProfit = 0;
+
+            data.forEach(row => {
+                const qty = parseInt(row.total_qty);
+                const revenue = parseFloat(row.total_revenue);
+                const unitCost = parseFloat(row.unit_cost) || 0;
+                
+                totalQty += qty;
+                totalRev += revenue;
+                totalProfit += (revenue - (unitCost * qty));
+            });
+            updateTotals(totalQty, totalRev, totalProfit);
+        }
+
+        function renderPagination() {
+            const totalItems = filteredData.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            
+            // Adjust current page if out of bounds
+            if (currentPage > totalPages) currentPage = totalPages || 1;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+            
+            const pageData = filteredData.slice(startIndex, endIndex);
+            
+            renderTable(pageData);
+
+            // Update Controls
+            document.getElementById('pageInfo').textContent = `Showing ${totalItems === 0 ? 0 : startIndex + 1}-${endIndex} of ${totalItems}`;
+            document.getElementById('currentPageDisplay').textContent = currentPage;
+            
+            // Disable/Enable buttons
+            const prevBtn = document.getElementById('prevBtn').parentElement;
+            const nextBtn = document.getElementById('nextBtn').parentElement;
+            
+            if (currentPage === 1) prevBtn.classList.add('disabled');
+            else prevBtn.classList.remove('disabled');
+            
+            if (currentPage === totalPages || totalPages === 0) nextBtn.classList.add('disabled');
+            else nextBtn.classList.remove('disabled');
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            renderPagination();
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No items found for this date.</td></tr>';
+                return;
+            }
+
+            data.forEach(row => {
+                const qty = parseInt(row.total_qty);
+                const revenue = parseFloat(row.total_revenue);
+                const unitCost = parseFloat(row.unit_cost) || 0;
+                const profit = revenue - (unitCost * qty);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span class="badge bg-light text-dark border">${row.product_code || 'N/A'}</span></td>
+                    <td class="fw-bold text-dark">${row.product_name}</td>
+                    <td class="text-center"><span class="badge bg-primary bg-opacity-10 text-primary fs-6">${qty}</span></td>
+                    <td class="text-end fw-bold">Rs. ${revenue.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-end fw-bold ${profit >= 0 ? 'text-success' : 'text-danger'}">Rs. ${profit.toLocaleString('en-LK', { minimumFractionDigits: 2 })}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateTotals(qty, rev, profit) {
+            document.getElementById('totalQtyDisplay').innerText = qty.toLocaleString();
+            document.getElementById('totalRevDisplay').innerText = 'Rs. ' + rev.toLocaleString('en-LK', { minimumFractionDigits: 2 });
+            document.getElementById('totalProfitDisplay').innerText = 'Rs. ' + profit.toLocaleString('en-LK', { minimumFractionDigits: 2 });
+        }
+
+        // Export only Name and Qty
+        function exportSimpleList() {
+            if (filteredData.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            const dateStr = document.getElementById('reportDate').value;
+            let csv = `Item Name,Sold Qty\n`;
+
+            filteredData.forEach(row => {
+                // Escape double quotes in names for CSV safety
+                const name = row.product_name.replace(/"/g, '""'); 
+                csv += `"${name}",${row.total_qty}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `Sold_Items_${dateStr}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>

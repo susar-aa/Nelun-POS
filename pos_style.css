@@ -1,0 +1,240 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #f0f2f5 0%, #e0e5ec 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+.pos-logo {
+    height: 50px; /* Adjust as needed for your logo size */
+    width: auto;
+    border-radius: 0.5rem;
+}
+
+.product-search-item.selected {
+    background-color: #e0e0e0; /* A light grey background for selected item */
+    color: #333; /* Darker text for contrast */
+    border-left: 4px solid #007bff; /* A blue border on the left */
+    font-weight: bold; /* Make the text bold */
+}
+.pos-header {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+.card {
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.product-search-container {
+    position: relative;
+    margin-bottom: 15px;
+}
+.product-search-results {
+    position: absolute;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    z-index: 100;
+    list-style: none;
+    padding: 0;
+    margin-top: 5px;
+    display: none; /* Hidden by default */
+}
+.product-search-results.show {
+    display: block;
+}
+/* Updated .product-search-item for the new design */
+.product-search-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    display: flex; /* Use flexbox for layout */
+    justify-content: space-between; /* Space out content and stock */
+    align-items: center; /* Vertically align items */
+}
+.product-search-item:last-child {
+    border-bottom: none;
+}
+.product-search-item:hover {
+    background-color: #f8f9fa;
+}
+/* Specific styling for elements within product-search-item */
+.product-search-item .product-name-code {
+    font-size: 1.25rem; /* Larger font for name */
+    font-weight: bold;
+    color: #333;
+}
+.product-search-item .product-code {
+    font-size: 1rem; /* Smaller font for code */
+    font-weight: normal;
+    color: #666;
+}
+.product-search-item .product-price {
+    font-size: 1.5rem; /* Larger font for price */
+    font-weight: bold;
+    color: #28a745; /* Changed to #28a745 (Bootstrap success green) as seen in the image */
+    margin-top: 5px; /* Space below name/code */
+}
+.product-search-item .product-stock-badge {
+    background-color: #6c757d; /* Grey background for stock */
+    color: white;
+    padding: 5px 10px;
+    border-radius: 0.5rem; /* Rounded corners for badge */
+    font-size: 0.9rem;
+    font-weight: 600;
+    /* Added display: block to ensure it's visible */
+    display: block; 
+}
+
+.cart-item-qty {
+    width: 70px; /* Smaller width for quantity input */
+}
+.total-row strong {
+    font-size: 1.1em;
+}
+.grand-total-row h3 {
+    font-weight: 700;
+    color: #28a745; /* Green for grand total */
+}
+.btn-action {
+    width: 100%;
+    margin-top: 10px;
+    border-radius: 0.5rem;
+}
+.form-control, .form-select {
+    border-radius: 0.5rem;
+}
+.alert-message-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    width: 300px;
+}
+.alert-message {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+/* Styling for the main layout grid */
+.pos-layout-container {
+    display: flex;
+    flex-grow: 1; /* Allows the container to fill available height */
+    gap: 20px; /* Space between columns */
+}
+
+.pos-cart-search-panel {
+    flex: 1; /* Takes up remaining space */
+    display: flex;
+    flex-direction: column;
+}
+
+.pos-payment-details-panel {
+    width: 400px; /* Fixed width for payment details */
+    display: flex;
+    flex-direction: column;
+}
+
+.pos-action-sidebar {
+    width: 180px; /* Fixed width for the button sidebar */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Pushes content to top and bottom */
+}
+
+.pos-action-buttons-panel {
+    width: 100%; /* Take full width of its parent */
+    background-color: #fff;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    padding: 15px;
+    flex-grow: 1; /* Make it fill the height of its parent (pos-action-sidebar) */
+    display: flex;
+    flex-direction: column; /* Arrange buttons vertically */
+}
+.pos-action-buttons-panel .btn {
+    height: 60px; /* Uniform height for buttons */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 10px; /* Spacing between buttons */
+}
+.pos-action-buttons-panel .btn:last-child {
+    margin-bottom: 0; /* No margin for the last button */
+}
+.pos-action-buttons-panel .btn i {
+    font-size: 1.3rem; /* Larger icons */
+    margin-right: 8px; /* Space between icon and text */
+}
+/* Specific styling for logout/dashboard buttons to push them to bottom */
+.pos-action-buttons-bottom {
+    margin-top: auto; /* Pushes these buttons to the bottom of the panel */
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+/* Payment Buttons styling */
+.payment-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Responsive grid */
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.payment-buttons-grid .btn {
+    height: 50px; /* Smaller height for payment buttons */
+    font-weight: 600;
+}
+.dropdown-menu {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.dropdown-item {
+    padding: 10px 15px;
+}
+
+/* Updated styles for animated search bar (standard size) */
+.animated-search-bar {
+    /* Reverting to standard form-control size, keeping animation */
+    /* font-size: 1rem; */ /* Default Bootstrap font size */
+    /* padding: 0.375rem 0.75rem; */ /* Default Bootstrap padding */
+    transition: all 0.3s ease-in-out; /* Smooth transition for animation */
+    border: 2px solid #ced4da;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.animated-search-bar:focus {
+    border-color: #007bff; /* Highlight border on focus */
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25); /* Glow effect on focus */
+    transform: scale(1.01); /* Slightly enlarge on focus */
+}
+
+/* Styles for cart item actions column */
+.cart-actions-col {
+    white-space: nowrap; /* Prevent buttons from wrapping */
+}
+
+.cart-actions-col .btn {
+    padding: 0.375rem 0.5rem; /* Smaller padding for icon-only buttons */
+    font-size: 1rem; /* Standard icon size */
+    margin: 0 2px; /* Small margin between buttons */
+}
+
+/* Style for free items in the cart */
+.free-item {
+    background-color: #f0fff0; /* Light green background for free items */
+    font-style: italic;
+    color: #555;
+}
+
+.free-item .cart-item-qty,
+.free-item .cart-item-qty:focus {
+    background-color: #e6ffe6; /* Lighter green for qty input on free items */
+    border-color: #a3e6a3;
+}

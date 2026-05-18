@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End Day Report</title>
+    <!-- html2pdf Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* 80mm Thermal Printer Settings */
+        @page {
+            size: 80mm auto; 
+            margin: 0;
+        }
+
+        body { 
+            font-family: 'Courier New', monospace; 
+            background: #fff; 
+            color: #000;
+            margin: 0;
+            padding: 5px;
+            width: 78mm; /* Slightly less than 80mm to prevent overflow */
+        }
+
+        #receiptContent {
+            width: 100%;
+            padding-bottom: 20px;
+        }
+
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        
+        .header { 
+            margin-bottom: 10px; 
+            border-bottom: 1px dashed #000; 
+            padding-bottom: 5px; 
+        }
+        
+        h2 {
+            font-size: 16px;
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+        }
+        
+        .sub-header {
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        .section { 
+            margin-bottom: 10px; 
+            border-bottom: 1px dashed #000; 
+            padding-bottom: 5px; 
+        }
+        
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        
+        td { 
+            padding: 2px 0; 
+            font-size: 12px; 
+            vertical-align: top;
+        }
+        
+        .total-row td { 
+            border-top: 1px dashed #000; 
+            font-weight: bold; 
+            padding-top: 5px; 
+        }
+        
+        .signature-line {
+            margin-top: 30px;
+            border-top: 1px solid #000;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Screen-only Actions */
+        .actions { 
+            margin: 20px auto; 
+            display: flex; 
+            gap: 10px; 
+            flex-direction: column; 
+            max-width: 300px;
+        }
+        
+        .btn { 
+            display: block; 
+            width: 100%; 
+            padding: 12px; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 14px; 
+            font-family: sans-serif; 
+            border-radius: 5px; 
+            text-align: center; 
+            text-decoration: none; 
+            font-weight: bold;
+        }
+        
+        .btn-print { background: #000; color: #fff; }
+        .btn-pdf { background: #dc3545; color: #fff; }
+        .btn-share { background: #0d6efd; color: #fff; }
+        
+        @media print {
+            .actions { display: none; }
+            body { 
+                width: auto; 
+                margin: 0; 
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="receiptContent">
+        <div class="header text-center">
+            <h2>FALCON STATIONERY</h2>
+            <div class="sub-header">POS End of Day Report</div>
+            <div id="metaInfo" style="margin-top:5px; font-size:11px;"></div>
+        </div>
+
+        <!-- SALES SUMMARY -->
+        <div class="section">
+            <div class="section-title">SALES SUMMARY</div>
+            <table>
+                <tr><td>Total Sales</td><td class="text-end" id="todaySales">0.00</td></tr>
+                <tr><td>Cash Sales</td><td class="text-end" id="cashSales">0.00</td></tr>
+                <tr><td>Card Sales</td><td class="text-end" id="cardSales">0.00</td></tr>
+                <tr><td>Bill Count</td><td class="text-end" id="billCount">0</td></tr>
+            </table>
+        </div>
+
+        <!-- CASH RECONCILIATION -->
+        <div class="section">
+            <div class="section-title">CASH DRAWER</div>
+            <table>
+                <tr><td>System Bal.</td><td class="text-end" id="sysBalance">0.00</td></tr>
+                <tr><td>(-) Expenses</td><td class="text-end" id="totExpenses">0.00</td></tr>
+                <tr class="fw-bold">
+                    <td style="border-top: 1px dashed #000; padding-top:2px;">Expected</td>
+                    <td class="text-end" style="border-top: 1px dashed #000; padding-top:2px;" id="expCash">0.00</td>
+                </tr>
+                <tr><td colspan="2" style="height: 5px;"></td></tr>
+                <tr style="font-size:1.1em;"><td>Counted</td><td class="text-end fw-bold" id="actCash">0.00</td></tr>
+                <tr><td>Difference</td><td class="text-end fw-bold" id="cashDiff">0.00</td></tr>
+            </table>
+        </div>
+
+        <!-- CASH BREAKDOWN -->
+        <div class="section">
+            <div class="section-title">CASH COUNT</div>
+            <table id="breakdownTable">
+                <tr style="border-bottom:1px dashed #000;">
+                    <td>Denom</td>
+                    <td class="text-center">Qty</td>
+                    <td class="text-end">Total</td>
+                </tr>
+                <!-- Rows injected by JS -->
+            </table>
+        </div>
+
+        <!-- EXPENSES -->
+        <div class="section" id="expensesSection">
+            <div class="section-title">EXPENSES</div>
+            <table id="expensesTable">
+                <!-- Rows injected by JS -->
+            </table>
+        </div>
+
+        <div class="text-center" style="margin-top:20px;">
+            <div class="signature-line"></div>
+            <div style="font-size:11px; margin-top:2px;">Cashier Signature</div>
+            <div style="font-size:10px; margin-top:10px;">Generated: <span id="printTime"></span></div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button class="btn btn-print" onclick="window.print()">Print Report</button>
+        <button class="btn btn-pdf" onclick="downloadPDF()">Download PDF</button>
+        <button class="btn btn-share" onclick="shareReport()">Share Link</button>
+    </div>
+
+    <script>
+        let reportData = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('printTime').textContent = new Date().toLocaleString();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+
+            if (encodedData) {
+                try {
+                    reportData = JSON.parse(atob(encodedData));
+                } catch (e) {
+                    console.error("Invalid shared data");
+                }
+            } else {
+                reportData = JSON.parse(localStorage.getItem('endDayReportData'));
+            }
+            
+            if(!reportData) {
+                document.body.innerHTML = '<div style="text-align:center; padding:50px;">No report data found.</div>';
+                return;
+            }
+
+            // Meta
+            document.getElementById('metaInfo').innerHTML = `${reportData.reportDate} ${reportData.reportTime}<br>Cashier: ${reportData.cashier}`;
+
+            // Sales
+            document.getElementById('todaySales').textContent = parseFloat(reportData.todaySales).toFixed(2);
+            document.getElementById('cashSales').textContent = parseFloat(reportData.dailyCashPaymentTotal).toFixed(2);
+            document.getElementById('cardSales').textContent = parseFloat(reportData.dailyCardPaymentTotal).toFixed(2);
+            document.getElementById('billCount').textContent = reportData.dailyBillCount;
+
+            // Cash Drawer
+            document.getElementById('sysBalance').textContent = parseFloat(reportData.expectedCashDrawerBalance).toFixed(2);
+            document.getElementById('totExpenses').textContent = parseFloat(reportData.totalExpenses).toFixed(2);
+            
+            const expected = reportData.expectedCashDrawerBalance - reportData.totalExpenses;
+            document.getElementById('expCash').textContent = expected.toFixed(2);
+            document.getElementById('actCash').textContent = parseFloat(reportData.countedCash).toFixed(2);
+            
+            const diff = parseFloat(reportData.cashDifference);
+            const diffEl = document.getElementById('cashDiff');
+            diffEl.textContent = (diff > 0 ? '+' : '') + diff.toFixed(2);
+            
+            // Breakdown Table
+            const breakdownTable = document.getElementById('breakdownTable');
+            if (reportData.cashBreakdown && reportData.cashBreakdown.length > 0) {
+                reportData.cashBreakdown.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.label}</td>
+                        <td class="text-center">${item.count}</td>
+                        <td class="text-end">${parseFloat(item.total).toFixed(2)}</td>
+                    `;
+                    breakdownTable.appendChild(tr);
+                });
+            } else {
+                breakdownTable.innerHTML += '<tr><td colspan="3" class="text-center text-muted">- No cash details -</td></tr>';
+            }
+
+            // Expenses Table
+            const expTable = document.getElementById('expensesTable');
+            if (reportData.expenses && reportData.expenses.length > 0) {
+                reportData.expenses.forEach(exp => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding-bottom:5px;">
+                            ${exp.description}<br>
+                            <span style="float:right; font-weight:bold;">${parseFloat(exp.amount).toFixed(2)}</span>
+                        </td>`;
+                    expTable.appendChild(tr);
+                });
+            } else {
+                document.getElementById('expensesSection').style.display = 'none';
+            }
+        });
+
+        function downloadPDF() {
+            const element = document.getElementById('receiptContent');
+            const opt = {
+                margin:       [0, 0],
+                filename:     `EndDayReport_${reportData.reportDate}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: [80, 200], orientation: 'portrait' } // Custom size approx 80mm width
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        function shareReport() {
+            if (!reportData) return;
+            const jsonString = JSON.stringify(reportData);
+            const encoded = btoa(jsonString);
+            const currentUrl = window.location.href.split('?')[0];
+            const shareUrl = `${currentUrl}?data=${encoded}`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'End of Day Report',
+                    text: `Report for ${reportData.reportDate}`,
+                    url: shareUrl
+                }).catch(console.error);
+            } else {
+                const tempInput = document.createElement("input");
+                tempInput.value = shareUrl;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand("copy");
+                document.body.removeChild(tempInput);
+                alert("Link copied to clipboard!");
+            }
+        }
+    </script>
+</body>
+</html>

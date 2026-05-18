@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Drawer Management</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            padding: 20px;
+            /* Allow scrolling within the iframe */
+            height: auto; 
+            overflow-y: auto;
+        }
+        
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .header-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0;
+        }
+        /* Modern Balance Card */
+        .balance-card {
+            background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 20px rgba(25, 135, 84, 0.2);
+            transition: transform 0.2s;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .balance-card:hover {
+            transform: translateY(-2px);
+        }
+        .balance-label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        .balance-amount {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 0;
+        }
+        
+        /* Modern Content Card */
+        .content-card {
+            background: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            height: 100%;
+        }
+        .content-header {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .content-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #495057;
+            margin: 0;
+        }
+        .card-body-custom {
+            padding: 25px;
+        }
+
+        /* Form Styling */
+        .form-label {
+            font-weight: 500;
+            color: #555;
+        }
+        .form-control {
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid #dee2e6;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+        }
+
+        /* Modal Styles */
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        .modal-header {
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+        }
+        
+        .cash-note-input {
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+        }
+        .cash-note-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .total-counted-cash, .difference-display {
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .total-counted-cash {
+            background-color: #e9f7ef;
+            border: 1px solid #28a745;
+            color: #28a745;
+        }
+        .difference-display.positive {
+            background-color: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+        .difference-display.negative {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+        .difference-display.zero {
+            background-color: #e2e3e5;
+            border: 1px solid #6c757d;
+            color: #6c757d;
+        }
+        
+        .btn-action {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="header-section">
+            <div>
+                <h1 class="header-title"><i class="bi bi-wallet2 me-2"></i>Cash Drawer</h1>
+                <p class="text-muted mt-1 mb-0">Manage daily cash flow and reconciliation.</p>
+            </div>
+            <div>
+                <a href="report_history.html" class="btn btn-outline-primary btn-action border me-2" target="_blank">
+                    <i class="bi bi-clock-history me-1"></i> History
+                </a>
+                <button class="btn btn-light btn-action border me-2" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
+                <button class="btn btn-danger btn-action shadow-sm" id="endDayBtn">
+                    <i class="bi bi-power me-2"></i>End Day & Close
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Balance Card -->
+            <div class="col-md-5 col-xl-4">
+                <div class="balance-card">
+                    <div class="balance-label">Current Balance</div>
+                    <div id="currentBalanceDisplay" class="balance-amount">
+                        <div class="spinner-border text-light" role="status"><span class="visually-hidden">Loading...</span></div>
+                    </div>
+                    <div class="mt-3 text-white-50 small">
+                        <i class="bi bi-info-circle me-1"></i> Updates automatically with sales
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Cash In Card -->
+            <div class="col-md-7 col-xl-8">
+                <div class="content-card">
+                    <div class="content-header">
+                        <h5 class="content-title"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Add Cash In</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <form id="addCashInForm" class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label for="cashInAmount" class="form-label">Amount (Rs.)</label>
+                                <input type="number" class="form-control form-control-lg fw-bold" id="cashInAmount" step="0.01" min="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="col-md-5">
+                                <label for="cashInDescription" class="form-label">Description</label>
+                                <input type="text" class="form-control form-control-lg" id="cashInDescription" placeholder="e.g. Bank Change">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary btn-action w-100 h-100">
+                                    Add
+                                </button>
+                            </div>
+                        </form>
+                        <div id="cashInMessage" class="alert d-none mt-3 mb-0" role="alert"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Day Modal -->
+    <div class="modal fade" id="endDayModal" tabindex="-1" aria-labelledby="endDayModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="endDayModalLabel"><i class="bi bi-calculator me-2"></i>End Day Report</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="endDayMessage" class="alert d-none" role="alert"></div>
+
+                    <ul class="nav nav-pills nav-fill mb-4 p-1 bg-light rounded" id="endDayTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active rounded fw-bold" id="cashCount-tab" data-bs-toggle="tab" data-bs-target="#cashCount" type="button" role="tab">1. Cash Count</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded fw-bold" id="expenses-tab" data-bs-toggle="tab" data-bs-target="#expenses" type="button" role="tab">2. Expenses</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded fw-bold" id="cardPayments-tab" data-bs-toggle="tab" data-bs-target="#cardPayments" type="button" role="tab">3. Card Payments</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="endDayTabsContent">
+                        <!-- Cash Count Tab -->
+                        <div class="tab-pane fade show active" id="cashCount" role="tabpanel" aria-labelledby="cashCount-tab">
+                            <div class="alert alert-light border d-flex justify-content-between align-items-center mb-4">
+                                <span>Expected System Balance:</span>
+                                <strong class="fs-5">Rs. <span id="expectedCashDrawerBalance">Loading...</span></strong>
+                            </div>
+
+                            <div id="cashCountInputs" class="mb-3">
+                                <!-- Generated by JS -->
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-8 text-end pt-2 fw-bold">Total Coins (Rs.):</div>
+                                <div class="col-4">
+                                    <input type="number" class="form-control text-center" id="totalCoinsInput" step="0.01" min="0" value="0.00">
+                                </div>
+                            </div>
+
+                            <div class="total-counted-cash">
+                                Counted: Rs. <span id="totalCountedCashDisplay">0.00</span>
+                            </div>
+                            <div class="difference-display mt-3" id="cashDifferenceDisplay">
+                                Difference: Rs. <span id="cashDifferenceAmount">0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Expenses Tab -->
+                        <div class="tab-pane fade" id="expenses" role="tabpanel" aria-labelledby="expenses-tab">
+                            <form id="expensesForm">
+                                <div id="expenseEntries">
+                                    <!-- Expense entries added here -->
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary w-100 dashed-border mt-2" id="addExpenseBtn">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Another Expense
+                                </button>
+                                <div class="total-counted-cash mt-4 text-dark bg-light border-secondary">
+                                    Total Expenses: Rs. <span id="totalExpensesDisplay">0.00</span>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Card Payments Tab -->
+                        <div class="tab-pane fade" id="cardPayments" role="tabpanel" aria-labelledby="cardPayments-tab">
+                            <div class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+                                <span>Expected Card Sales:</span>
+                                <strong class="fs-5">Rs. <span id="expectedCardSales">Loading...</span></strong>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="totalCardPaymentsInput" class="form-label fw-bold">Total Card Slips Amount (Rs.)</label>
+                                <input type="number" class="form-control form-control-lg fw-bold text-primary" id="totalCardPaymentsInput" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                            
+                            <div class="difference-display mt-3" id="cardDifferenceDisplay">
+                                Difference: Rs. <span id="cardDifferenceAmount">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger fw-bold px-4" id="generateEndDayReportBtn">
+                        <i class="bi bi-file-earmark-text me-2"></i> Generate End Day Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentBalanceDisplay = document.getElementById('currentBalanceDisplay');
+            const addCashInForm = document.getElementById('addCashInForm');
+            const cashInAmountInput = document.getElementById('cashInAmount');
+            const cashInDescriptionInput = document.getElementById('cashInDescription');
+            const cashInMessage = document.getElementById('cashInMessage');
+
+            // End Day Modal Elements
+            const endDayBtn = document.getElementById('endDayBtn');
+            const endDayModal = new bootstrap.Modal(document.getElementById('endDayModal'));
+            const endDayMessage = document.getElementById('endDayMessage');
+            const cashCountInputsDiv = document.getElementById('cashCountInputs');
+            const totalCountedCashDisplay = document.getElementById('totalCountedCashDisplay');
+            const expectedCashDrawerBalance = document.getElementById('expectedCashDrawerBalance');
+            const cashDifferenceDisplay = document.getElementById('cashDifferenceDisplay');
+            const cashDifferenceAmount = document.getElementById('cashDifferenceAmount');
+
+            const expenseEntriesDiv = document.getElementById('expenseEntries');
+            const addExpenseBtn = document.getElementById('addExpenseBtn');
+            const totalExpensesDisplay = document.getElementById('totalExpensesDisplay');
+
+            const totalCoinsInput = document.getElementById('totalCoinsInput');
+            const totalCardPaymentsInput = document.getElementById('totalCardPaymentsInput');
+            const expectedCardSales = document.getElementById('expectedCardSales');
+            const cardDifferenceDisplay = document.getElementById('cardDifferenceDisplay');
+            const cardDifferenceAmount = document.getElementById('cardDifferenceAmount');
+
+            const generateEndDayReportBtn = document.getElementById('generateEndDayReportBtn');
+
+            const API_URL = 'pos_api.php'; 
+            const USER_ID = localStorage.getItem('user_id'); 
+
+            // Denominations for cash counting (LKR)
+            const denominations = [5000, 1000, 500, 100, 50, 20];
+
+            let currentCashDrawerBalance = 0; 
+            let dashboardSummaryData = {}; 
+
+            function showFormMessage(element, message, type) {
+                element.textContent = message;
+                element.className = `alert mt-3 alert-${type}`;
+                element.classList.remove('d-none');
+                setTimeout(() => {
+                    element.classList.add('d-none');
+                }, 5000);
+            }
+
+            // --- Fetch Current Cash Drawer Balance ---
+            async function fetchCashDrawerBalance() {
+                currentBalanceDisplay.innerHTML = `<div class="spinner-border text-light" role="status"><span class="visually-hidden">Loading...</span></div>`;
+                try {
+                    const response = await fetch(`${API_URL}?action=get_cash_drawer_balance`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        currentBalanceDisplay.textContent = `Rs. ${parseFloat(data.balance).toFixed(2)}`;
+                        currentCashDrawerBalance = parseFloat(data.balance); 
+                    } else {
+                        currentBalanceDisplay.textContent = `Error: ${data.message}`;
+                        showFormMessage(cashInMessage, `Failed to load balance: ${data.message}`, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error fetching cash drawer balance:', error);
+                    currentBalanceDisplay.textContent = `Error.`;
+                    showFormMessage(cashInMessage, 'An unexpected error occurred while fetching balance.', 'danger');
+                }
+            }
+
+            // --- Add Cash In ---
+            addCashInForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const amount = parseFloat(cashInAmountInput.value);
+                const description = cashInDescriptionInput.value.trim();
+                const userId = localStorage.getItem('user_id'); 
+
+                if (isNaN(amount) || amount <= 0) {
+                    showFormMessage(cashInMessage, 'Please enter a valid positive amount.', 'danger');
+                    return;
+                }
+                if (!userId) {
+                    showFormMessage(cashInMessage, 'User not logged in.', 'danger');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'add_cash_in',
+                            amount: amount,
+                            description: description,
+                            user_id: userId
+                        })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        showFormMessage(cashInMessage, data.message, 'success');
+                        cashInAmountInput.value = ''; 
+                        cashInDescriptionInput.value = ''; 
+                        fetchCashDrawerBalance(); 
+                    } else {
+                        showFormMessage(cashInMessage, data.message, 'danger');
+                    }
+                } catch (error) {
+                    showFormMessage(cashInMessage, 'An unexpected error occurred.', 'danger');
+                }
+            });
+
+            // --- Fetch Dashboard Summary ---
+            async function fetchDashboardSummaryForEndDay() {
+                try {
+                    const response = await fetch(`${API_URL}?action=get_enhanced_dashboard_summary`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const today = data.today || {};
+                        const allTime = data.all_time || {};
+                        const yesterday = data.yesterday || {};
+
+                        dashboardSummaryData = {
+                            todaySales: parseFloat(today.sales) || 0.00,
+                            dailyCashPaymentTotal: parseFloat(today.cash_sales) || 0.00,
+                            dailyCardPaymentTotal: parseFloat(today.card_sales) || 0.00,
+                            totalSalesOverall: parseFloat(allTime.sales) || 0.00,
+                            yesterdaySales: parseFloat(yesterday.sales) || 0.00,
+                            todayCashIn: parseFloat(today.cash_in) || 0.00,
+                            dailyBillCount: parseInt(today.bills) || 0,
+                            totalBillCount: parseInt(allTime.bills) || 0
+                        };
+                        
+                        expectedCardSales.textContent = dashboardSummaryData.dailyCardPaymentTotal.toFixed(2);
+                        calculateCardDifference(); 
+                    } else {
+                        showFormMessage(endDayMessage, `Failed to load dashboard data: ${data.message}`, 'danger');
+                        dashboardSummaryData = { dailyCardPaymentTotal: 0.00 }; 
+                    }
+                } catch (error) {
+                    showFormMessage(endDayMessage, `Network error fetching dashboard data.`, 'danger');
+                    dashboardSummaryData = { dailyCardPaymentTotal: 0.00 }; 
+                }
+            }
+
+            // --- Cash Count Logic ---
+            function generateCashCountInputs() {
+                cashCountInputsDiv.innerHTML = '';
+                denominations.forEach(denom => {
+                    const row = document.createElement('div');
+                    row.classList.add('row', 'g-2', 'mb-2', 'align-items-center');
+                    row.innerHTML = `
+                        <div class="col-4 text-end cash-note-label">
+                            Rs. ${denom.toFixed(2)}
+                        </div>
+                        <div class="col-4">
+                            <input type="number" class="form-control form-control-sm cash-note-input" 
+                                data-denomination="${denom}" value="" min="0" placeholder="0">
+                        </div>
+                        <div class="col-4 text-start fw-bold text-success">
+                            Rs. <span class="cash-note-total">0.00</span>
+                        </div>
+                    `;
+                    cashCountInputsDiv.appendChild(row);
+                });
+
+                document.querySelectorAll('.cash-note-input').forEach(input => {
+                    input.addEventListener('input', calculateCashCount);
+                    input.addEventListener('focus', (e) => e.target.select()); 
+                });
+
+                totalCoinsInput.addEventListener('input', calculateCashCount);
+            }
+
+            function calculateCashCount() {
+                let totalCountedNotes = 0;
+                document.querySelectorAll('.cash-note-input').forEach(input => {
+                    const denomination = parseFloat(input.dataset.denomination);
+                    const count = parseInt(input.value) || 0;
+                    const total = denomination * count;
+                    input.closest('.row').querySelector('.cash-note-total').textContent = total.toFixed(2);
+                    totalCountedNotes += total;
+                });
+
+                const totalCoins = parseFloat(totalCoinsInput.value) || 0;
+                const totalCounted = totalCountedNotes + totalCoins; 
+                
+                totalCountedCashDisplay.textContent = totalCounted.toFixed(2);
+                
+                const totalExpenses = parseFloat(totalExpensesDisplay.textContent) || 0;
+                calculateCashDifference(totalCounted, currentCashDrawerBalance, totalExpenses);
+            }
+
+            function updateExpectedCashDrawerBalanceDisplay() {
+                expectedCashDrawerBalance.textContent = currentCashDrawerBalance.toFixed(2);
+            }
+
+            function calculateCashDifference(countedCash, expectedBalanceBeforeExpenses, totalExpenses) {
+                const adjustedExpectedBalance = expectedBalanceBeforeExpenses - totalExpenses;
+                const difference = countedCash - adjustedExpectedBalance;
+                cashDifferenceAmount.textContent = difference.toFixed(2);
+                cashDifferenceDisplay.classList.remove('positive', 'negative', 'zero');
+                if (difference > 0) {
+                    cashDifferenceDisplay.classList.add('positive');
+                    cashDifferenceDisplay.innerHTML = `Over: <strong>Rs. ${difference.toFixed(2)}</strong>`;
+                } else if (difference < 0) {
+                    cashDifferenceDisplay.classList.add('negative');
+                    cashDifferenceDisplay.innerHTML = `Short: <strong>Rs. ${Math.abs(difference).toFixed(2)}</strong>`;
+                } else {
+                    cashDifferenceDisplay.classList.add('zero');
+                    cashDifferenceDisplay.textContent = `Difference: Rs. 0.00`;
+                }
+            }
+
+            // --- Expenses Logic ---
+            function addExpenseEntry(description = '', amount = '') {
+                const newEntry = document.createElement('div');
+                newEntry.classList.add('row', 'g-2', 'mb-2', 'expense-entry', 'align-items-center');
+                newEntry.innerHTML = `
+                    <div class="col-6">
+                        <input type="text" class="form-control form-control-sm expense-description" placeholder="Description" value="${description}" required>
+                    </div>
+                    <div class="col-4">
+                        <input type="number" class="form-control form-control-sm expense-amount" step="0.01" min="0.01" placeholder="Amount" required>
+                    </div>
+                    <div class="col-2 text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-expense-btn border-0"><i class="bi bi-trash"></i></button>
+                    </div>
+                `;
+                expenseEntriesDiv.appendChild(newEntry);
+
+                newEntry.querySelector('.remove-expense-btn').addEventListener('click', (e) => {
+                    e.currentTarget.closest('.expense-entry').remove();
+                    calculateTotalExpenses();
+                });
+                newEntry.querySelector('.expense-amount').addEventListener('input', calculateTotalExpenses);
+            }
+
+            function calculateTotalExpenses() {
+                let totalExpenses = 0;
+                document.querySelectorAll('.expense-amount').forEach(input => {
+                    totalExpenses += parseFloat(input.value) || 0;
+                });
+                totalExpensesDisplay.textContent = totalExpenses.toFixed(2);
+                
+                const countedCash = parseFloat(totalCountedCashDisplay.textContent) || 0;
+                calculateCashDifference(countedCash, currentCashDrawerBalance, totalExpenses);
+            }
+
+            addExpenseBtn.addEventListener('click', () => addExpenseEntry());
+
+            // --- Card Payments Logic ---
+            function calculateCardDifference() {
+                const countedCard = parseFloat(totalCardPaymentsInput.value) || 0;
+                const difference = countedCard - (dashboardSummaryData.dailyCardPaymentTotal || 0); 
+                cardDifferenceAmount.textContent = difference.toFixed(2);
+                cardDifferenceDisplay.classList.remove('positive', 'negative', 'zero');
+                if (difference > 0) {
+                    cardDifferenceDisplay.classList.add('positive');
+                    cardDifferenceDisplay.innerHTML = `Over: <strong>Rs. ${difference.toFixed(2)}</strong>`;
+                } else if (difference < 0) {
+                    cardDifferenceDisplay.classList.add('negative');
+                    cardDifferenceDisplay.innerHTML = `Short: <strong>Rs. ${Math.abs(difference).toFixed(2)}</strong>`;
+                } else {
+                    cardDifferenceDisplay.classList.add('zero');
+                    cardDifferenceDisplay.textContent = `Difference: Rs. 0.00`;
+                }
+            }
+            totalCardPaymentsInput.addEventListener('input', calculateCardDifference);
+
+            // --- End Day Button Click ---
+            endDayBtn.addEventListener('click', async () => { 
+                generateCashCountInputs();
+                updateExpectedCashDrawerBalanceDisplay(); 
+                
+                await fetchDashboardSummaryForEndDay(); 
+                
+                expenseEntriesDiv.innerHTML = '';
+                addExpenseEntry(); 
+                calculateTotalExpenses(); 
+
+                totalCoinsInput.value = '0.00'; 
+                calculateCashCount(); 
+
+                endDayMessage.classList.add('d-none');
+                endDayModal.show();
+            });
+
+            // --- Generate End Day Report ---
+            generateEndDayReportBtn.addEventListener('click', async () => {
+                const countedCash = parseFloat(totalCountedCashDisplay.textContent) || 0;
+                const totalExpenses = parseFloat(totalExpensesDisplay.textContent) || 0;
+                const countedCardPayments = parseFloat(totalCardPaymentsInput.value) || 0;
+                const totalCoins = parseFloat(totalCoinsInput.value) || 0; 
+
+                const expectedCashBalanceAfterExpenses = currentCashDrawerBalance - totalExpenses;
+                const finalCashDifference = countedCash - expectedCashBalanceAfterExpenses;
+                const cardDifference = countedCardPayments - (dashboardSummaryData.dailyCardPaymentTotal || 0);
+
+                const expenseDetails = [];
+                document.querySelectorAll('.expense-entry').forEach(entry => {
+                    const description = entry.querySelector('.expense-description').value.trim();
+                    const amount = parseFloat(entry.querySelector('.expense-amount').value) || 0;
+                    if (description && amount > 0) {
+                        expenseDetails.push({ description, amount });
+                    }
+                });
+
+                // Capture detailed cash count
+                const cashBreakdown = [];
+                document.querySelectorAll('.cash-note-input').forEach(input => {
+                    const count = parseInt(input.value) || 0;
+                    if(count > 0) {
+                        cashBreakdown.push({
+                            label: 'Rs. ' + input.dataset.denomination,
+                            count: count,
+                            total: count * parseFloat(input.dataset.denomination)
+                        });
+                    }
+                });
+                if(totalCoins > 0) {
+                    cashBreakdown.push({ label: 'Coins', count: '-', total: totalCoins });
+                }
+
+                const endDayReportData = {
+                    reportDate: new Date().toLocaleDateString(),
+                    reportTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                    cashier: localStorage.getItem('username'),
+                    
+                    expectedCashDrawerBalance: currentCashDrawerBalance,
+                    countedCash: countedCash,
+                    cashDifference: finalCashDifference, 
+                    totalCoinsEntered: totalCoins,
+                    
+                    cashBreakdown: cashBreakdown,
+
+                    todaySales: dashboardSummaryData.todaySales || 0.00,
+                    dailyCashPaymentTotal: dashboardSummaryData.dailyCashPaymentTotal || 0.00,
+                    dailyCardPaymentTotal: dashboardSummaryData.dailyCardPaymentTotal || 0.00,
+                    totalSalesOverall: dashboardSummaryData.totalSalesOverall || 0.00,
+                    yesterdaySales: dashboardSummaryData.yesterdaySales || 0.00,
+                    todayCashIn: dashboardSummaryData.todayCashIn || 0.00,
+                    dailyBillCount: dashboardSummaryData.dailyBillCount || 0,
+                    totalBillCount: dashboardSummaryData.totalBillCount || 0,
+
+                    expectedCardSales: dashboardSummaryData.dailyCardPaymentTotal || 0.00,
+                    countedCardPayments: countedCardPayments,
+                    cardDifference: cardDifference,
+
+                    expenses: expenseDetails,
+                    totalExpenses: totalExpenses
+                };
+
+                // Save to Server History
+                try {
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'save_end_day_report',
+                            report: endDayReportData
+                        })
+                    });
+                } catch (e) { console.error("Failed to save report history", e); }
+
+                localStorage.setItem('endDayReportData', JSON.stringify(endDayReportData));
+                window.open('end_day_receipt.html', '_blank'); 
+
+                // 1. Record Expenses in DB
+                let expenseError = false;
+                if (expenseDetails.length > 0) {
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'add_expense',
+                                amount: totalExpenses,
+                                description: 'End Day Expenses: ' + expenseDetails.map(e => e.description).join(', '),
+                                user_id: USER_ID
+                            })
+                        });
+                        const data = await response.json();
+                        if (!data.success) expenseError = true;
+                    } catch (error) { expenseError = true; }
+                }
+
+                // 2. Reset Drawer (Cash Out)
+                const cashOutAmount = currentCashDrawerBalance - totalExpenses;
+                if (cashOutAmount > 0) {
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'add_cash_out',  // FIX: Use add_cash_out instead of add_expense
+                                type: 'Cash Out', 
+                                amount: cashOutAmount,
+                                description: 'End Day Closing Balance Transfer',
+                                user_id: USER_ID
+                            })
+                        });
+                        const data = await response.json();
+                        if (!data.success) {
+                            showFormMessage(endDayMessage, 'Report generated, but failed to reset drawer: ' + data.message, 'warning');
+                        } else {
+                            showFormMessage(endDayMessage, 'End Day Completed & Drawer Reset!', 'success');
+                        }
+                    } catch (error) {
+                        showFormMessage(endDayMessage, 'Network error resetting drawer.', 'warning');
+                    }
+                } else {
+                    showFormMessage(endDayMessage, 'End Day Completed!', 'success');
+                }
+                
+                endDayModal.hide();
+                fetchCashDrawerBalance(); 
+            });
+
+            fetchCashDrawerBalance();
+        });
+    </script>
+</body>
+</html>

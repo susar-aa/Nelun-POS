@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Monitor</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        // Global Error Handler for Tablet Debugging
+        window.onerror = function(msg, url, line) {
+            console.error("Error: " + msg);
+            return false;
+        };
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #F2F2F7; /* iOS System Gray 6 */
+            --card-bg: #FFFFFF;
+            --accent-color: #007AFF; /* iOS Blue */
+            --success-color: #34C759; /* iOS Green */
+            --text-primary: #1C1C1E; /* iOS Label Color */
+            --text-secondary: #8E8E93; /* iOS Secondary Label */
+            --border-color: #C6C6C8; /* iOS Separator */
+            --shadow-color: rgba(0, 0, 0, 0.08);
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-primary); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            margin: 0;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Layout Grid --- */
+        .app-container {
+            display: grid;
+            grid-template-columns: 65% 35%; /* Optimized for Landscape Tablet */
+            height: 100vh;
+            gap: 1px; /* Divider line */
+            background-color: rgba(0,0,0,0.1); /* Subtle divider color */
+        }
+
+        /* --- LEFT SIDE: Pure List --- */
+        .product-section {
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .products-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 80px; 
+            -webkit-overflow-scrolling: touch; 
+        }
+
+        /* Cart Item Styling (Clean List) */
+        .cart-item {
+            background-color: var(--card-bg);
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            animation: slideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-shadow: 0 2px 8px var(--shadow-color);
+            border: 1px solid transparent;
+            transition: transform 0.2s;
+        }
+        
+        .cart-item.new-item {
+            background-color: rgba(0, 122, 255, 0.05); /* Very light blue tint */
+            border-color: rgba(0, 122, 255, 0.2);
+            transform: scale(1.02);
+        }
+
+        .item-main {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .qty-circle {
+            background-color: #E5E5EA; /* iOS Gray 5 */
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            font-weight: 700;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .item-details {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .item-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+
+        .item-price-unit {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .item-total {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-align: right;
+            white-space: nowrap;
+            padding-left: 15px;
+            font-feature-settings: "tnum"; /* Tabular figures for alignment */
+        }
+
+        /* --- RIGHT SIDE: iOS Style Panel --- */
+        .bill-section {
+            background-color: var(--card-bg); /* Clean white background */
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.03); /* Subtle depth */
+            z-index: 2;
+            justify-content: space-between; /* Space out top/middle/bottom */
+        }
+
+        /* 1. Header Area */
+        .control-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header-logo {
+            height: 45px;
+            width: auto;
+            margin-bottom: 15px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cashier-select-wrapper {
+            position: relative;
+            background: #F2F2F7;
+            border-radius: 12px;
+            padding: 4px;
+        }
+
+        .cashier-selector {
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            appearance: none;
+            outline: none;
+            text-align: center;
+            cursor: pointer;
+        }
+        
+        .sync-badge {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            display: block;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background-color: var(--text-secondary);
+            transition: background-color 0.3s;
+        }
+        .status-dot.active { background-color: var(--success-color); box-shadow: 0 0 8px var(--success-color); }
+        .status-dot.error { background-color: #FF3B30; }
+
+        /* 2. Bill Details List */
+        .bill-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #F2F2F7;
+            font-size: 1rem;
+        }
+        .summary-row:last-child { border-bottom: none; }
+
+        .summary-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .summary-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-feature-settings: "tnum";
+        }
+        
+        #discountRow .summary-value { color: #FF3B30; } /* iOS Red for discounts */
+
+        /* 3. Grand Total Card */
+        .big-total-display {
+            background: linear-gradient(135deg, #007AFF 0%, #0055FF 100%);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0, 122, 255, 0.25);
+            transition: transform 0.2s;
+            margin-top: auto;
+        }
+        
+        .big-total-label { 
+            color: rgba(255,255,255,0.8); 
+            font-size: 0.9rem; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            font-weight: 600; 
+            margin-bottom: 5px;
+        }
+        .big-total-amount { 
+            font-size: 3rem; 
+            font-weight: 800; 
+            line-height: 1; 
+            letter-spacing: -1px; 
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+            opacity: 0.6;
+        }
+        .empty-state i { font-size: 4rem; margin-bottom: 15px; opacity: 0.5; }
+        .empty-state h4 { font-weight: 700; margin-bottom: 5px; color: var(--text-primary); }
+
+        /* Screensaver */
+        #slideshowContainer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;
+            background: #000; display: none; opacity: 0; transition: opacity 0.6s ease; cursor: pointer;
+        }
+        #slideshowImage { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Thank You Overlay */
+        #thankYouOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2100;
+            background: rgba(255, 255, 255, 0.98); 
+            backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+        }
+        #thankYouOverlay.active { opacity: 1; pointer-events: auto; }
+        .check-icon { font-size: 6rem; color: var(--success-color); margin-bottom: 20px; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .thank-you-title { font-size: 3rem; font-weight: 800; color: var(--text-primary); letter-spacing: -1px; margin-bottom: 5px; }
+
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Version Tag */
+        .version-tag {
+            position: absolute; bottom: 10px; left: 15px; font-size: 0.7rem; color: #ccc; z-index: 5; font-family: monospace;
+        }
+        
+        /* Mobile/Portrait Adjustments */
+        @media (max-width: 900px) {
+            .app-container { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+            .product-section { border-right: none; }
+            .bill-section { 
+                padding: 15px; 
+                border-top: 1px solid var(--border-color); 
+                flex-direction: row; 
+                align-items: center; 
+                gap: 15px;
+                box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+            }
+            .control-header { display: none; } 
+            .bill-details { display: none; } 
+            .big-total-display { 
+                width: 100%; margin: 0; padding: 12px 20px; 
+                display: flex; justify-content: space-between; align-items: center; 
+            }
+            .big-total-amount { font-size: 2rem; margin-top: 0; }
+            .big-total-label { font-size: 0.9rem; margin-bottom: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Screensaver -->
+    <div id="slideshowContainer" onclick="stopSlideshow()">
+        <img id="slideshowImage" src="" alt="Promo">
+    </div>
+
+    <!-- Thank You -->
+    <div id="thankYouOverlay">
+        <i class="bi bi-check-circle-fill check-icon"></i>
+        <h1 class="thank-you-title">Thank You!</h1>
+        <p class="text-secondary fw-medium fs-5">Please Visit Again</p>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="app-container">
+        
+        <!-- LEFT: Full List -->
+        <div class="product-section">
+            <div class="products-list" id="liveCartList">
+                <div class="empty-state">
+                    <i class="bi bi-cart3"></i>
+                    <h4>Ready to Scan</h4>
+                    <p class="small">Waiting for cashier...</p>
+                </div>
+            </div>
+            <div class="version-tag">v3.3 (Multi-User Fix)</div>
+        </div>
+
+        <!-- RIGHT: Controls & Bill (Redesigned) -->
+        <div class="bill-section">
+            
+            <!-- 1. Header & Controls -->
+            <div class="control-header">
+                <img src="/images/logo.png" alt="Logo" class="header-logo" onerror="this.style.display='none'">
+                
+                <div class="cashier-select-wrapper">
+                    <select id="userSelect" class="cashier-selector">
+                        <option value="">Select Cashier</option>
+                    </select>
+                </div>
+                
+                <div class="sync-badge">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="lastUpdatedTime">Connecting...</span>
+                </div>
+            </div>
+
+            <!-- 2. Bill Summary Details -->
+            <div class="bill-details">
+                <div class="summary-row">
+                    <span class="summary-label">Total Items</span>
+                    <span class="summary-value" id="totalItemsCount">0</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Subtotal</span>
+                    <span class="summary-value">Rs. <span id="subtotalDisplay">0.00</span></span>
+                </div>
+                <div class="summary-row" id="discountRow">
+                    <span class="summary-label">Discount</span>
+                    <span class="summary-value text-danger" id="discountDisplay">-0.00</span>
+                </div>
+                <!-- Spacer to push total down -->
+                <div style="flex-grow: 1;"></div>
+            </div>
+
+            <!-- 3. Grand Total -->
+            <div class="big-total-display">
+                <div class="big-total-label">Total Payable</div>
+                <div class="big-total-amount">Rs. <span id="grandTotalDisplay">0.00</span></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Cashier Modal (Fallback if not selected) -->
+    <div class="modal fade" id="cashierModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px; padding: 10px;">
+                <div class="modal-header border-0 pb-0 justify-content-center">
+                    <h5 class="modal-title fw-bold">Select Active Terminal</h5>
+                </div>
+                <div class="modal-body">
+                    <div id="modalLoading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-3 small text-muted font-monospace">Scanning network...</p>
+                    </div>
+                    <div class="list-group list-group-flush" id="modalUserList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const userSelect = document.getElementById('userSelect');
+        const liveCartList = document.getElementById('liveCartList');
+        const totalItemsCount = document.getElementById('totalItemsCount');
+        const subtotalDisplay = document.getElementById('subtotalDisplay');
+        const discountDisplay = document.getElementById('discountDisplay');
+        const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+        const lastUpdatedTime = document.getElementById('lastUpdatedTime');
+        const statusDot = document.getElementById('statusDot');
+        
+        const slideshowContainer = document.getElementById('slideshowContainer');
+        const slideshowImage = document.getElementById('slideshowImage');
+        const thankYouOverlay = document.getElementById('thankYouOverlay');
+        let cashierModal; 
+
+        const SLIDE_DURATION = 5000;
+        const REQUEST_TIMEOUT = 10000;
+
+        let pollingInterval = null;
+        let slideInterval = null;
+        let lastCartJSON = ''; 
+        let isUserLoading = false;
+        let currentSlideIndex = 0;
+        let previousCartItemCount = 0;
+        let currentDisplayState = 'IDLE'; 
+        let slideshowImages = []; 
+
+        async function fetchWithTimeout(resource, options = {}) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+            try {
+                const response = await fetch(resource, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
+
+        async function loadBanners() {
+            try {
+                const res = await fetchWithTimeout('get_banners.php', { cache: 'no-store' });
+                const data = await res.json();
+                if(data.success && Array.isArray(data.images) && data.images.length > 0) {
+                    slideshowImages = data.images;
+                    if(currentDisplayState === 'IDLE' && !slideInterval && userSelect.value) {
+                        startSlideshow();
+                    }
+                }
+            } catch(e) { console.warn("Banner load skipped"); }
+        }
+
+        function startSlideshow() {
+            if (slideInterval || !userSelect.value || slideshowImages.length === 0) return;
+            if (document.body.classList.contains('modal-open')) return; 
+
+            slideshowContainer.style.display = 'block';
+            setTimeout(() => slideshowContainer.style.opacity = '1', 50);
+            
+            if (currentSlideIndex >= slideshowImages.length) currentSlideIndex = 0;
+            slideshowImage.src = slideshowImages[currentSlideIndex];
+            
+            slideInterval = setInterval(() => {
+                currentSlideIndex = (currentSlideIndex + 1) % slideshowImages.length;
+                slideshowImage.src = slideshowImages[currentSlideIndex];
+            }, SLIDE_DURATION);
+        }
+
+        function stopSlideshow() {
+            if (slideInterval) {
+                clearInterval(slideInterval);
+                slideInterval = null;
+            }
+            slideshowContainer.style.opacity = '0';
+            setTimeout(() => { 
+                if(currentDisplayState !== 'IDLE') slideshowContainer.style.display = 'none'; 
+            }, 500); 
+        }
+
+        function showThankYou() {
+            currentDisplayState = 'THANK_YOU';
+            stopSlideshow();
+            thankYouOverlay.classList.add('active');
+
+            setTimeout(() => {
+                thankYouOverlay.classList.remove('active');
+                if (currentDisplayState === 'THANK_YOU') {
+                    currentDisplayState = 'IDLE';
+                    startSlideshow();
+                }
+            }, 5000);
+        }
+
+        async function loadUsers() {
+            if(isUserLoading) return;
+            isUserLoading = true;
+
+            try {
+                const res = await fetchWithTimeout('live_sync.php?action=get_active_users', { cache: 'no-store' });
+                const data = await res.json();
+                
+                if(data.success) {
+                    const currentVal = userSelect.value;
+                    const users = data.users;
+                    let html = '<option value="">Select Cashier...</option>';
+                    let modalHtml = '';
+
+                    users.forEach(u => {
+                        const isSelected = u.user_id == currentVal ? 'selected' : '';
+                        html += `<option value="${u.user_id}" ${isSelected}>${u.username}</option>`;
+                        modalHtml += `<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 border-bottom" onclick="selectUser(${u.user_id})"><span class="fw-bold">${u.username}</span> <i class="bi bi-chevron-right text-muted"></i></button>`;
+                    });
+
+                    if(users.length === 0) modalHtml = '<div class="p-4 text-center text-muted">No active terminals.<br>Start billing to appear.</div>';
+
+                    if(userSelect.innerHTML !== html) userSelect.innerHTML = html;
+                    document.getElementById('modalUserList').innerHTML = modalHtml;
+                    document.getElementById('modalLoading').style.display = 'none';
+                    
+                    lastUpdatedTime.textContent = "Online";
+                    statusDot.className = "status-dot active";
+                }
+            } catch(e) { 
+                lastUpdatedTime.textContent = "Reconnecting...";
+                statusDot.className = "status-dot error";
+                if(userSelect.options.length <= 1) {
+                    document.getElementById('modalUserList').innerHTML = '<div class="text-center p-3 text-danger">Connection Failed <br> <button class="btn btn-sm btn-outline-dark mt-2" onclick="location.reload()">Retry</button></div>';
+                    document.getElementById('modalLoading').style.display = 'none';
+                }
+            } finally {
+                isUserLoading = false;
+            }
+        }
+
+        window.selectUser = function(id) {
+            userSelect.value = id;
+            userSelect.dispatchEvent(new Event('change'));
+            if(cashierModal) cashierModal.hide();
+        };
+
+        async function fetchLiveCart() {
+            const userId = userSelect.value;
+            if(!userId) return;
+
+            try {
+                // Strict check: Only get cart if it belongs to selected user
+                const res = await fetchWithTimeout(`live_sync.php?action=get_live_cart&user_id=${userId}`, { cache: 'no-store' });
+                const data = await res.json();
+                
+                // --- CRITICAL FIX: Race Condition Guard ---
+                // If user changed dropdown selection while request was pending, discard this response
+                if(userSelect.value != userId) return;
+
+                if(data.success) {
+                    lastUpdatedTime.textContent = "Live";
+                    statusDot.className = "status-dot active";
+
+                    const currentCart = data.cart || [];
+                    const currentItemCount = currentCart.length;
+                    
+                    if (currentItemCount > 0) {
+                        if (currentDisplayState !== 'ACTIVE') {
+                            currentDisplayState = 'ACTIVE';
+                            stopSlideshow();
+                            thankYouOverlay.classList.remove('active');
+                        }
+                    } else {
+                        if (currentDisplayState === 'ACTIVE' && previousCartItemCount > 0) {
+                            showThankYou();
+                        } else if (currentDisplayState === 'IDLE') {
+                            startSlideshow();
+                        }
+                    }
+
+                    const currentHash = JSON.stringify(data.cart) + (data.grand_total || '0');
+                    if (currentHash !== lastCartJSON) {
+                        renderCart(currentCart);
+                        updateSummary(data);
+                        lastCartJSON = currentHash;
+                    }
+                    previousCartItemCount = currentItemCount;
+                }
+            } catch(e) { 
+                if(userSelect.value == userId) {
+                     lastUpdatedTime.textContent = "Sync Error"; 
+                     statusDot.className = "status-dot error";
+                }
+            }
+        }
+
+        function renderCart(cart) {
+            liveCartList.innerHTML = '';
+            if (!cart || cart.length === 0) {
+                liveCartList.innerHTML = `<div class="empty-state"><i class="bi bi-cart3"></i><h4>Ready</h4><p class="small">Waiting for items...</p></div>`;
+                return;
+            }
+
+            [...cart].reverse().forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = `cart-item ${index === 0 ? 'new-item' : ''}`;
+                div.innerHTML = `
+                    <div class="item-main">
+                        <div class="qty-circle">${parseInt(item.qty)}</div>
+                        <div class="item-details">
+                            <span class="item-name">${item.name}</span>
+                            <span class="item-price-unit">@ Rs. ${parseFloat(item.price).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div class="item-total">Rs. ${parseFloat(item.total).toFixed(2)}</div>
+                `;
+                liveCartList.appendChild(div);
+            });
+        }
+
+        function updateSummary(data) {
+            const subtotal = parseFloat(data.subtotal || 0);
+            const discount = parseFloat(data.discount || 0);
+            const grandTotal = parseFloat(data.grand_total || 0);
+            const cart = data.cart || [];
+            let totalQty = 0;
+            cart.forEach(i => totalQty += parseInt(i.qty));
+            
+            totalItemsCount.textContent = totalQty;
+            subtotalDisplay.textContent = subtotal.toFixed(2);
+            discountDisplay.textContent = discount > 0 ? '-' + discount.toFixed(2) : '0.00';
+            grandTotalDisplay.textContent = grandTotal.toFixed(2);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            cashierModal = new bootstrap.Modal(document.getElementById('cashierModal'));
+            loadBanners();
+            loadUsers().then(() => {
+                if(!userSelect.value) cashierModal.show();
+            });
+            setInterval(loadUsers, 10000);
+        });
+
+        userSelect.addEventListener('change', () => {
+            if(pollingInterval) clearInterval(pollingInterval);
+            lastCartJSON = ''; 
+            
+            if(userSelect.value) {
+                if(cashierModal) cashierModal.hide();
+                fetchLiveCart(); 
+                pollingInterval = setInterval(fetchLiveCart, 1000); 
+            } else {
+                liveCartList.innerHTML = `<div class="empty-state"><i class="bi bi-person-badge"></i><h3>Select Cashier</h3></div>`;
+                updateSummary({ subtotal: 0, discount: 0, grand_total: 0, cart: [] });
+                stopSlideshow();
+                cashierModal.show(); 
+            }
+        });
+    </script>
+</body>
+</html>

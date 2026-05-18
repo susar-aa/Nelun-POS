@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falcon Stationery POS</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --ios-bg: #F2F2F7;
+            --ios-blue: #007AFF;
+            --sidebar-bg: #FFFFFF;
+            --text-primary: #1C1C1E;
+            --text-secondary: #8E8E93;
+            --hover-bg: #F5F5F7;
+            --active-bg: rgba(0, 122, 255, 0.1);
+            --active-text: #007AFF;
+            --border-color: rgba(0,0,0,0.05);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background-color: var(--ios-bg);
+            color: var(--text-primary);
+        }
+
+        #wrapper {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* --- SIDEBAR REDESIGN --- */
+        #sidebar-wrapper {
+            min-width: var(--sidebar-width);
+            max-width: var(--sidebar-width);
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: margin 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 1000;
+        }
+
+        .sidebar-brand {
+            padding: 24px 24px 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            color: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2);
+        }
+
+        .sidebar-menu {
+            padding: 16px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .menu-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin: 16px 12px 8px 12px;
+            letter-spacing: 0.05em;
+        }
+
+        /* Nav Items */
+        .nav-item-custom {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            margin-bottom: 4px;
+            border-radius: 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .nav-item-custom:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .nav-item-custom.active {
+            background-color: var(--active-bg);
+            color: var(--active-text);
+            font-weight: 600;
+        }
+
+        .nav-item-custom i {
+            margin-right: 12px;
+            font-size: 1.1rem;
+            width: 24px;
+            text-align: center;
+            color: var(--text-secondary);
+            transition: color 0.2s;
+        }
+
+        .nav-item-custom.active i {
+            color: var(--active-text);
+        }
+        
+        .nav-item-custom .chevron {
+            margin-left: auto;
+            margin-right: 0;
+            font-size: 0.8rem;
+            transition: transform 0.2s;
+        }
+        
+        .nav-item-custom[aria-expanded="true"] .chevron {
+            transform: rotate(180deg);
+        }
+
+        /* Submenu */
+        .submenu {
+            padding-left: 12px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .submenu::before {
+            content: '';
+            position: absolute;
+            left: 28px;
+            top: 4px;
+            bottom: 4px;
+            width: 2px;
+            background-color: var(--hover-bg);
+            border-radius: 2px;
+        }
+
+        .submenu .nav-item-custom {
+            padding: 8px 16px 8px 36px;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+            color: var(--text-secondary);
+        }
+
+        .submenu .nav-item-custom.active {
+            color: var(--text-primary);
+            background: transparent; /* Submenus usually cleaner without full bg in iOS list style */
+            position: relative;
+        }
+        
+        .submenu .nav-item-custom.active::before {
+            content: '';
+            position: absolute;
+            left: -14px; /* Align with the vertical line */
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 4px;
+            background-color: var(--ios-blue);
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        /* Sidebar Footer (Profile) */
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            background-color: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: var(--hover-bg);
+            border-radius: 12px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .user-card:hover {
+            background: #EAEAEA;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: #D1D1D6;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 0.9rem;
+        }
+
+        .user-info {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* --- CONTENT AREA --- */
+        #page-content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--ios-bg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mobile-navbar {
+            display: none; /* Hidden on desktop */
+            padding: 12px 16px;
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #contentFrame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+            background-color: var(--ios-bg); /* Match iframe bg to container */
+        }
+
+        /* Mobile Toggle Logic */
+        @media (max-width: 768px) {
+            #sidebar-wrapper {
+                margin-left: calc(-1 * var(--sidebar-width));
+                position: fixed;
+                height: 100%;
+                box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+            }
+            #wrapper.toggled #sidebar-wrapper {
+                margin-left: 0;
+            }
+            .mobile-navbar {
+                display: flex;
+            }
+            /* Dark overlay when sidebar is open */
+            #wrapper.toggled #page-content-wrapper::after {
+                content: '';
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.3);
+                z-index: 999;
+                backdrop-filter: blur(2px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="wrapper">
+        
+        <!-- SIDEBAR -->
+        <aside id="sidebar-wrapper">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="bi bi-feather"></i>
+                </div>
+                <div>Falcon POS</div>
+            </div>
+
+            <div class="sidebar-menu">
+                <div class="menu-label">Main</div>
+                
+                <a class="nav-item-custom active" data-link="overview.html">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>Dashboard</span>
+                </a>
+                
+                <a class="nav-item-custom" href="pos-panel.html" target="_blank">
+                    <i class="bi bi-display"></i>
+                    <span>Open Terminal</span>
+                    <i class="bi bi-box-arrow-up-right ms-auto" style="font-size: 0.75rem;"></i>
+                </a>
+
+                <a class="nav-item-custom" href="live_monitor.html">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Live Monitor</span>
+                    <i class="bi bi-box-arrow-up-right ms-auto" style="font-size: 0.75rem;"></i>
+                </a>
+
+                <div class="menu-label">Inventory</div>
+
+                <a class="nav-item-custom" data-bs-toggle="collapse" href="#productsSubmenu" role="button" aria-expanded="false">
+                    <i class="bi bi-box-seam-fill"></i>
+                    <span>Products</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </a>
+                <div class="collapse submenu" id="productsSubmenu">
+                    <a class="nav-item-custom" data-link="product-management.php">Product List</a>
+                    <a class="nav-item-custom" data-link="add_stock.html">Add Stock</a>
+                    <a class="nav-item-custom" data-link="low_stock.html">Low Stock Alerts</a>
+                </div>
+
+                <div class="menu-label">Finance</div>
+
+                <a class="nav-item-custom" data-bs-toggle="collapse" href="#salesSubmenu" role="button" aria-expanded="false">
+                    <i class="bi bi-receipt"></i>
+                    <span>Sales History</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </a>
+                <div class="collapse submenu" id="salesSubmenu">
+                    <a class="nav-item-custom" data-link="sales_history.html">All Invoices</a>
+                    <a class="nav-item-custom" data-link="product_sales.html">Item Wise</a>
+                    <a class="nav-item-custom" data-link="sold_today.html">Sold Today</a>
+                </div>
+
+                <a class="nav-item-custom" data-link="expenses.php">
+                    <i class="bi bi-wallet2"></i>
+                    <span>Expenses</span>
+                </a>
+                
+                <a class="nav-item-custom" data-link="cash-drawer.html">
+                    <i class="bi bi-safe2-fill"></i>
+                    <span>Cash Drawer</span>
+                </a>
+
+                <a class="nav-item-custom" data-link="return_panel.html">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span>Returns</span>
+                </a>
+
+                <div class="menu-label">Admin</div>
+
+                <!-- Reports Submenu -->
+                <a class="nav-item-custom" data-bs-toggle="collapse" href="#reportsSubmenu" role="button" aria-expanded="false">
+                    <i class="bi bi-bar-chart-fill"></i>
+                    <span>Reports</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </a>
+                <div class="collapse submenu" id="reportsSubmenu">
+                    <a class="nav-item-custom" data-link="reports.html">General Reports</a>
+                    <a class="nav-item-custom" data-link="report_history.html">End Day Reports</a>
+                </div>
+
+                <a class="nav-item-custom" data-link="user-management.php">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Users & Roles</span>
+                </a>
+
+                <a class="nav-item-custom" data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false">
+                    <i class="bi bi-gear-fill"></i>
+                    <span>Settings</span>
+                    <i class="bi bi-chevron-down chevron"></i>
+                </a>
+                <div class="collapse submenu" id="settingsSubmenu">
+                    <a class="nav-item-custom" data-link="banner-management.php">Banners & Screensaver</a>
+                </div>
+            </div>
+
+            <!-- Profile Footer -->
+            <div class="sidebar-footer">
+                <div class="user-card" id="userProfileBtn">
+                    <div class="user-avatar">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name" id="displayUsername">Loading...</div>
+                        <div class="user-role" id="displayRole">Staff</div>
+                    </div>
+                    <i class="bi bi-box-arrow-right text-danger ms-2" id="logoutIcon"></i>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main id="page-content-wrapper">
+            <!-- Mobile Navbar (Visible only on small screens) -->
+            <nav class="mobile-navbar">
+                <div class="d-flex align-items-center gap-2 fw-bold text-dark">
+                    <i class="bi bi-feather text-primary"></i> Falcon POS
+                </div>
+                <button class="btn btn-light btn-sm border" id="menu-toggle">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+            </nav>
+
+            <!-- Iframe Content -->
+            <iframe id="contentFrame" src="overview.html" title="Main Content"></iframe>
+        </main>
+    </div>
+
+    <!-- JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const wrapper = document.getElementById('wrapper');
+            const menuToggle = document.getElementById('menu-toggle');
+            const contentFrame = document.getElementById('contentFrame');
+            const navLinks = document.querySelectorAll('.nav-item-custom[data-link]');
+            
+            // --- 1. User Info Loading ---
+            const username = localStorage.getItem('username') || 'Admin User';
+            const role = localStorage.getItem('role') || 'Manager';
+            
+            document.getElementById('displayUsername').textContent = username;
+            document.getElementById('displayRole').textContent = role;
+
+            // --- 2. Sidebar Toggle (Mobile) ---
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                wrapper.classList.toggle('toggled');
+            });
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth <= 768 && wrapper.classList.contains('toggled')) {
+                    if (!document.getElementById('sidebar-wrapper').contains(e.target) && e.target !== menuToggle) {
+                        wrapper.classList.remove('toggled');
+                    }
+                }
+            });
+
+            // --- 3. Navigation Handling ---
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    const target = link.getAttribute('data-link');
+                    if(!target) return; // For collapse toggles or external links
+
+                    // Visual Active State
+                    document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
+                    link.classList.add('active');
+
+                    // Load Content
+                    contentFrame.src = target;
+
+                    // On Mobile: Close sidebar after selection
+                    if (window.innerWidth <= 768) {
+                        wrapper.classList.remove('toggled');
+                    }
+                });
+            });
+
+            // --- 4. Logout Logic ---
+            document.getElementById('userProfileBtn').addEventListener('click', () => {
+                if(confirm('Log out of Falcon POS?')) {
+                    localStorage.removeItem('user_id');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('role');
+                    window.location.href = 'login.html'; // Adjust login page URL if needed
+                }
+            });
+
+            // --- 5. Auth Check (Basic) ---
+            if(!localStorage.getItem('user_id')) {
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+</html>

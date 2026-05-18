@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falcon Stationery POS</title>
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Falcon POS">
+    <link rel="apple-touch-icon" href="/images/logo.png">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --ios-bg: #F2F2F7;
+            --ios-blue: #007AFF;
+            --text-primary: #1C1C1E;
+            --text-secondary: #8E8E93;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            background-color: var(--ios-bg);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated Background Shapes */
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+            animation: float 10s infinite ease-in-out;
+        }
+        .shape-1 {
+            width: 300px; height: 300px;
+            background: rgba(0, 122, 255, 0.2);
+            top: -50px; left: -50px;
+            animation-delay: 0s;
+        }
+        .shape-2 {
+            width: 400px; height: 400px;
+            background: rgba(52, 199, 89, 0.15);
+            bottom: -100px; right: -100px;
+            animation-delay: 2s;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(20px) scale(1.05); }
+            100% { transform: translateY(0px) scale(1); }
+        }
+
+        /* Main Card */
+        .welcome-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 60px 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            border: 1px solid rgba(255,255,255,0.5);
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .logo-container {
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 22px;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .logo-img {
+            width: 60px;
+            height: auto;
+        }
+
+        h1 {
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            line-height: 1.5;
+        }
+
+        .btn-ios-primary {
+            background-color: var(--ios-blue);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            width: 100%;
+            transition: transform 0.2s, background-color 0.2s;
+            text-decoration: none;
+            display: block;
+        }
+
+        .btn-ios-primary:hover {
+            transform: scale(1.02);
+            background-color: #0062cc;
+            color: white;
+        }
+
+        .btn-ios-primary:active {
+            transform: scale(0.98);
+        }
+
+        /* Developer Credits */
+        .credits {
+            position: absolute;
+            bottom: 30px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            animation: fadeIn 1.5s ease-out;
+        }
+
+        .credits a {
+            color: var(--ios-blue);
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        
+        .credits a:hover {
+            opacity: 0.7;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+
+    <div class="welcome-card">
+        <div class="logo-container">
+            <!-- Replace with your actual logo file -->
+            <img src="/images/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'bi bi-feather text-primary fs-1\'></i>'">
+        </div>
+        
+        <h1>Falcon Stationery</h1>
+        <p>Advanced Point of Sale System<br>Manage your business with ease.</p>
+        
+        <a href="login.html" class="btn-ios-primary">
+            Get Started
+        </a>
+    </div>
+
+    <div class="credits">
+        Developed by <a href="https://suzxlabs.com/" target="_blank">Suzx Labs</a>
+    </div>
+
+</body>
+</html>

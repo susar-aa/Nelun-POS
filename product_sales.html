@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Wise Sales</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            height: 100%;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .summary-card:hover { transform: translateY(-3px); }
+        
+        .badge-general {
+            background-color: #ffecb3;
+            color: #664d03;
+            border: 1px solid #ffdb6d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-dark mb-1">Product Sales & Profit</h2>
+                <p class="text-muted small mb-0">Analyze product performance and margins.</p>
+            </div>
+            <button class="btn btn-success" id="exportBtn"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <form id="filterForm" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">From Date</label>
+                    <input type="date" class="form-control" id="startDate" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">To Date</label>
+                    <input type="date" class="form-control" id="endDate" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Search Product</label>
+                    <input type="text" class="form-control" id="searchProduct" placeholder="Product Name or Code">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filter</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-4">
+                <div class="summary-card">
+                    <div class="text-uppercase text-muted fw-bold small mb-2">Total Quantity</div>
+                    <div class="h2 fw-bold text-dark mb-0" id="totalQtyDisplay">0</div>
+                    <div class="small text-muted mt-1">Items Sold</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-card" style="background-color: #e8f5e9; border-color: #c8e6c9;">
+                    <div class="text-uppercase text-success fw-bold small mb-2">Total Revenue</div>
+                    <div class="h2 fw-bold text-success mb-0" id="totalRevDisplay">Rs. 0.00</div>
+                    <div class="small text-success opacity-75 mt-1">Gross Sales</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-card" style="background-color: #e3f2fd; border-color: #bbdefb;">
+                    <div class="text-uppercase text-primary fw-bold small mb-2">Estimated Profit</div>
+                    <div class="h2 fw-bold text-primary mb-0" id="totalProfitDisplay">Rs. 0.00</div>
+                    <div class="small text-primary opacity-75 mt-1">Revenue - Cost</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 15%">Code</th>
+                                <th style="width: 30%">Product Name</th>
+                                <th class="text-center" style="width: 10%">Qty</th>
+                                <th class="text-end" style="width: 15%">Avg Price</th>
+                                <th class="text-end" style="width: 15%">Revenue</th>
+                                <th class="text-end" style="width: 15%">Est. Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody">
+                            <tr><td colspan="6" class="text-center py-5 text-muted">Select dates and click Filter to view data.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set default dates (Today)
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').value = today;
+        document.getElementById('endDate').value = today;
+
+        let currentData = [];
+
+        document.getElementById('filterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await fetchData();
+        });
+
+        async function fetchData() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const search = document.getElementById('searchProduct').value;
+            const tbody = document.getElementById('reportTableBody');
+
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`reports.php?action=getProductSales&start=${start}&end=${end}&search=${encodeURIComponent(search)}`);
+                const result = await res.json();
+
+                if (result.success) {
+                    currentData = result.data;
+                    renderTable(result.data);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">${result.message}</td></tr>`;
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Network Error</td></tr>';
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+            
+            let totalQty = 0;
+            let totalRev = 0;
+            let totalProfit = 0;
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted">No sales found for this period.</td></tr>';
+                updateTotals(0, 0, 0);
+                return;
+            }
+
+            data.forEach(row => {
+                const qty = parseInt(row.total_qty);
+                const revenue = parseFloat(row.total_revenue);
+                const unitCost = parseFloat(row.unit_cost) || 0;
+                
+                // Calculate Profit: Revenue - (Cost * Qty)
+                // Note: General items usually have cost 0, so profit = revenue
+                const profit = revenue - (unitCost * qty);
+                const avgPrice = revenue / qty;
+
+                totalQty += qty;
+                totalRev += revenue;
+                totalProfit += profit;
+
+                // Identify General Item
+                const isGeneral = row.product_code.startsWith('GEN') || row.product_code === 'N/A';
+                const codeDisplay = isGeneral 
+                    ? `<span class="badge badge-general">General</span>` 
+                    : `<span class="badge bg-secondary">${row.product_code}</span>`;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${codeDisplay}</td>
+                    <td class="fw-bold text-dark">${row.product_name}</td>
+                    <td class="text-center">${qty}</td>
+                    <td class="text-end text-muted">Rs. ${avgPrice.toFixed(2)}</td>
+                    <td class="text-end fw-bold">Rs. ${revenue.toFixed(2)}</td>
+                    <td class="text-end fw-bold ${profit >= 0 ? 'text-success' : 'text-danger'}">Rs. ${profit.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            updateTotals(totalQty, totalRev, totalProfit);
+        }
+
+        function updateTotals(qty, rev, profit) {
+            document.getElementById('totalQtyDisplay').innerText = qty.toLocaleString();
+            document.getElementById('totalRevDisplay').innerText = 'Rs. ' + rev.toLocaleString('en-LK', { minimumFractionDigits: 2 });
+            document.getElementById('totalProfitDisplay').innerText = 'Rs. ' + profit.toLocaleString('en-LK', { minimumFractionDigits: 2 });
+        }
+
+        // Export to CSV
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            if (!currentData || currentData.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            let csv = 'Product Code,Product Name,Total Qty Sold,Avg Price,Total Revenue,Est Profit,Is General\n';
+
+            currentData.forEach(row => {
+                const qty = parseInt(row.total_qty);
+                const revenue = parseFloat(row.total_revenue);
+                const unitCost = parseFloat(row.unit_cost) || 0;
+                const profit = revenue - (unitCost * qty);
+                const avgPrice = revenue / qty;
+                const isGen = row.product_code.startsWith('GEN') ? 'Yes' : 'No';
+
+                // Escape quotes in name
+                const nameSafe = row.product_name.replace(/"/g, '""');
+
+                // Prepend \t to code to force text format in Excel
+                csv += `"\t${row.product_code}","${nameSafe}",${qty},${avgPrice.toFixed(2)},${revenue.toFixed(2)},${profit.toFixed(2)},${isGen}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `Product_Sales_${start}_to_${end}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        // Initial Load
+        fetchData();
+    </script>
+</body>
+</html>

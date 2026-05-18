@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Receipt</title>
+    <link rel="icon" href="images/logo.png" type="image/png">
+    <style>
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+
+        body {
+            width: 80mm;
+            font-family: 'Arial', sans-serif;
+            font-size: 11px;
+            line-height: 1.3;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+            color: #000;
+        }
+
+        .container {
+            width: 72mm; /* Printable width */
+            margin: 0 auto;
+            padding: 4mm 0;
+        }
+
+        /* HEADER */
+        .header {
+            text-align: center;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+        }
+        .header img {
+            max-width: 35mm;
+            height: auto;
+            margin-bottom: 5px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .header h2 {
+            margin: 2px 0;
+            font-size: 13px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .header p {
+            margin: 1px 0;
+            font-size: 10px;
+        }
+
+        /* INFO (Bill Details) */
+        .info-grid {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 10px;
+        }
+        .info-col {
+            width: 48%;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* ITEM GRID (New Single Line Layout) */
+        .item-header {
+            display: flex;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 4px 0;
+            margin-bottom: 4px;
+            font-weight: 800;
+            font-size: 10px; 
+            text-transform: uppercase;
+        }
+        
+        .item-row {
+            display: flex;
+            align-items: center; /* Vertically center */
+            border-bottom: 1px dotted #ccc;
+            padding: 3px 0;
+            font-size: 10px; /* Slightly smaller to fit one line */
+            font-family: 'Courier New', Courier, monospace; /* Monospace for numbers */
+        }
+
+        /* Columns Widths - Adjusted after removing Discount */
+        .col-name { 
+            width: 45%; 
+            text-align: left; 
+            font-family: 'Arial', sans-serif; 
+            font-weight: 700;
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            padding-right: 2px;
+        }
+        .col-qty { 
+            width: 12%; 
+            text-align: center;
+            font-weight: 700; /* Made Bold */
+        }
+        .col-price { 
+            width: 18%; 
+            text-align: right;
+            font-weight: 700; /* Made Bold */
+        }
+        .col-amt { 
+            width: 25%; 
+            text-align: right; 
+            font-weight: 800;
+        }
+
+        /* TOTALS SECTION */
+        .totals-section {
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+            margin-top: 5px;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+            font-size: 11px;
+        }
+        .grand-total-box {
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 5px 0;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: 900;
+        }
+
+        /* FOOTER */
+        .footer {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 10px;
+        }
+        .footer p { margin: 2px 0; }
+
+        @media print {
+            .container { padding: 0 1mm; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="images/logo.png" onerror="this.style.display='none'" alt="Logo">
+            <h2>FALCON STATIONERY PVT LTD</h2>
+            <p>79, BOYAGANE, KURUNEGALA</p>
+            <p><strong>Tel: 0372228020 / 077392623</strong></p>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-col">
+                <div class="info-row"><span>Bill No:</span> <strong id="receiptBillNo"></strong></div>
+                <div class="info-row"><span>Date:</span> <span id="receiptDate"></span></div>
+            </div>
+            <div class="info-col" style="text-align: right;">
+                <div class="info-row" style="justify-content: flex-end;"><span>Cashier:</span> <span id="receiptCashier" style="margin-left: 5px;"></span></div>
+                <div class="info-row" style="justify-content: flex-end;"><span>Time:</span> <span id="receiptTime" style="margin-left: 5px;"></span></div>
+            </div>
+        </div>
+        <div class="info-row" style="border-bottom: 1px dashed #000; padding-bottom: 3px; margin-bottom: 5px;">
+            <span>Customer:</span> <strong id="receiptCustomer"></strong>
+            <span style="float: right;">Method: <strong id="receiptPaymentMethod"></strong></span>
+        </div>
+
+        <!-- Single Line Header (Discount Removed) -->
+        <div class="item-header">
+            <span class="col-name">ITEM</span>
+            <span class="col-qty">QTY</span>
+            <span class="col-price">PRICE</span>
+            <span class="col-amt">AMOUNT</span>
+        </div>
+
+        <!-- Dynamic Items Container -->
+        <div id="receiptItemsContainer">
+            <!-- Items injected here -->
+        </div>
+
+        <div class="totals-section">
+            <div class="total-row">
+                <span>Total Items:</span>
+                <strong id="receiptTotalItems">0</strong>
+            </div>
+            <div class="total-row" id="receiptGrossTotalRow">
+                <span>Gross Total:</span>
+                <span>Rs. <span id="receiptGrossTotal">0.00</span></span>
+            </div>
+            <div class="total-row" id="receiptItemDiscountRow" style="display:none;">
+                <span>Item Discounts:</span>
+                <span>(-) Rs. <span id="receiptItemDiscounts">0.00</span></span>
+            </div>
+            <div class="total-row" id="receiptBillDiscountRow" style="display:none;">
+                <span>Bill Discount:</span>
+                <span>(-) Rs. <span id="receiptBillDiscount">0.00</span></span>
+            </div>
+            
+            <div class="grand-total-box">
+                <span>NET TOTAL:</span>
+                <span>Rs. <span id="receiptGrandTotal">0.00</span></span>
+            </div>
+
+            <div class="total-row">
+                <span>Paid Amount:</span>
+                <span style="font-weight:bold;">Rs. <span id="receiptPaidAmount">0.00</span></span>
+            </div>
+            <div class="total-row">
+                <span>Balance:</span>
+                <span style="font-weight:bold;">Rs. <span id="receiptBalanceAmount">0.00</span></span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="font-weight: bold; font-size: 12px;">THANK YOU COME AGAIN!</p>
+            <p>Visit 'www.falconstationery.com' to Shop Online</p>
+            <p style="font-size: 9px; margin-top: 5px;">*Software by "www.suzxlabs.com" *</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const receiptData = JSON.parse(localStorage.getItem('currentReceiptData'));
+
+            if (receiptData) {
+                document.getElementById('receiptBillNo').textContent = receiptData.billNo;
+                document.getElementById('receiptCashier').textContent = receiptData.cashier || 'Admin';
+                document.getElementById('receiptCustomer').textContent = receiptData.customer || 'Walk-in';
+                document.getElementById('receiptPaymentMethod').textContent = receiptData.paymentMethod;
+                document.getElementById('receiptDate').textContent = receiptData.date;
+                document.getElementById('receiptTime').textContent = receiptData.time;
+
+                const itemsContainer = document.getElementById('receiptItemsContainer');
+                itemsContainer.innerHTML = ''; 
+
+                receiptData.items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'item-row';
+                    
+                    const price = parseFloat(item.price).toFixed(2);
+                    const total = parseFloat(item.total).toFixed(2);
+
+                    // Single line structure (Discount Removed)
+                    div.innerHTML = `
+                        <span class="col-name" title="${item.name}">${item.name}</span>
+                        <span class="col-qty">${item.qty}</span>
+                        <span class="col-price">${price}</span>
+                        <span class="col-amt">${total}</span>
+                    `;
+                    itemsContainer.appendChild(div);
+                });
+
+                document.getElementById('receiptTotalItems').textContent = receiptData.totalItems;
+                document.getElementById('receiptGrossTotal').textContent = parseFloat(receiptData.grossSubtotal).toFixed(2);
+                
+                if (receiptData.totalItemDiscounts > 0) {
+                    document.getElementById('receiptItemDiscountRow').style.display = 'flex';
+                    document.getElementById('receiptItemDiscounts').textContent = parseFloat(receiptData.totalItemDiscounts).toFixed(2);
+                }
+                
+                if (receiptData.billDiscount > 0) {
+                    document.getElementById('receiptBillDiscountRow').style.display = 'flex';
+                    document.getElementById('receiptBillDiscount').textContent = parseFloat(receiptData.billDiscount).toFixed(2);
+                }
+
+                document.getElementById('receiptGrandTotal').textContent = parseFloat(receiptData.grandTotal).toFixed(2);
+                document.getElementById('receiptPaidAmount').textContent = parseFloat(receiptData.paidAmount).toFixed(2);
+                document.getElementById('receiptBalanceAmount').textContent = parseFloat(receiptData.balanceAmount).toFixed(2);
+
+                setTimeout(() => {
+                    window.print();
+                }, 500);
+            } else {
+                document.body.innerHTML = '<p style="text-align: center; padding-top: 20px;">No receipt data available to print.</p>';
+            }
+        });
+    </script>
+</body>
+</html>

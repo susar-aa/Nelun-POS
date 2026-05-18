@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Print Barcodes</title>
+    <!-- Alternative CDN to avoid Tracking Prevention blocks -->
+    <script src="https://unpkg.com/jsbarcode@3.11.5/dist/JsBarcode.all.min.js" crossorigin="anonymous"></script>
+    <style>
+        /* --- CONFIGURABLE ALIGNMENT SETTINGS --- */
+        :root {
+            /* 1. HORIZONTAL ALIGNMENT */
+            /* Left Sticker Position: 2mm from left edge. */
+            --page-margin-left: 2mm; 
+
+            /* Gap Between Stickers. 
+               - Affects distance between Left and Middle.
+            */
+            --col-gap: 3mm; 
+
+            /* 2. VERTICAL ALIGNMENT 
+               - Adjust this to move text Up/Down within the box.
+            */
+            --sticker-padding-top: 1.5mm;
+
+            /* Sticker Dimensions */
+            --sticker-width: 30mm;
+            --sticker-height: 15mm;
+            
+            /* Page Width */
+            --page-width: 96.6mm;
+        }
+
+        /* --- PRINT SETTINGS --- */
+        @media print {
+            @page {
+                size: var(--page-width) auto; 
+                margin: 0mm; /* IMPORTANT: Hides browser header/footer (URL/Date) */
+            }
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            html, body {
+                height: auto; 
+                overflow: visible; 
+            }
+        }
+
+        /* --- GLOBAL LAYOUT --- */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            background-color: #fff;
+            width: var(--page-width);
+            
+            /* Apply Horizontal Alignment */
+            padding-left: var(--page-margin-left); 
+            
+            padding-top: 0; 
+        }
+
+        /* --- GRID CONTAINER --- */
+        .label-container {
+            display: grid;
+            grid-template-columns: var(--sticker-width) var(--sticker-width) var(--sticker-width);
+            column-gap: var(--col-gap);
+            row-gap: 0mm; 
+            
+            width: fit-content;
+        }
+
+        /* --- INDIVIDUAL STICKER --- */
+        .sticker {
+            width: var(--sticker-width);
+            height: var(--sticker-height);
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
+            
+            justify-content: flex-start; 
+            padding-top: var(--sticker-padding-top);
+
+            text-align: center;
+            overflow: hidden; 
+            background: white;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* --- FINE TUNING: Right Sticker Specific Shift --- */
+        /* Target every 3rd sticker (The Rightmost one) and push it 1mm RIGHT */
+        .sticker:nth-child(3n) {
+            transform: translateX(1mm); /* Visual shift right */
+        }
+
+        /* --- CONTENT STYLING --- */
+        .product-name {
+            font-size: 8px; 
+            line-height: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 95%; 
+            margin-bottom: 1px;
+            text-transform: uppercase;
+        }
+
+        .barcode-item {
+            width: 95%; 
+            height: 8mm; 
+            display: block;
+        }
+
+        .code-text {
+            font-size: 8px;
+            margin-top: 1px;
+            line-height: 9px;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="label-container" id="container"></div>
+
+    <script>
+        console.log("Barcode Print Page Loaded");
+
+        const params = new URLSearchParams(window.location.search);
+        const name = params.get('name') || 'Product Name';
+        const code = params.get('code') || '123456';
+        const qty = parseInt(params.get('qty') || 1); 
+
+        console.log(`Generating barcodes: Name="${name}", Code="${code}", Qty=${qty}`);
+
+        const container = document.getElementById('container');
+
+        if (container) {
+            for (let i = 0; i < qty; i++) {
+                const div = document.createElement('div');
+                div.className = 'sticker';
+                
+                div.innerHTML = `
+                    <div class="product-name">${name}</div>
+                    <svg class="barcode-item"
+                        jsbarcode-value="${code}"
+                        jsbarcode-format="CODE128"
+                        jsbarcode-width="1.8"
+                        jsbarcode-height="30"
+                        jsbarcode-displayValue="false"
+                        jsbarcode-margin="0">
+                    </svg>
+                    <div class="code-text">${code}</div>
+                `;
+                container.appendChild(div);
+            }
+
+            // Initialize Barcodes with error handling for tracking prevention
+            try {
+                if (typeof JsBarcode !== 'undefined') {
+                    JsBarcode(".barcode-item").init();
+                    
+                    // Only print if successful
+                    window.onload = function() {
+                        setTimeout(() => {
+                            window.print();
+                        }, 800); 
+                    };
+                } else {
+                    console.error("JsBarcode library blocked or not loaded.");
+                    document.body.innerHTML = '<div style="padding:20px; color:red;"><h3>Error: Barcode Library Blocked</h3><p>Your browser (Edge) is blocking the barcode script via "Tracking Prevention".</p><p>Please look for a shield icon in the address bar and set "Tracking Prevention" to "Off" for this site, or allow the blocked content.</p></div>';
+                }
+            } catch (e) {
+                console.error("Barcode generation failed", e);
+            }
+        }
+    </script>
+</body>
+</html>
