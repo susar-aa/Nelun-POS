@@ -93,7 +93,7 @@ if ($is_api) {
 
             // Items
             $stmtItems = $pdo->prepare("
-                SELECT pi.*, p.name as product_name, p.product_code, p.item_code
+                SELECT pi.*, p.name as product_name, p.product_code, p.item_code, p.price as retail_price
                 FROM po_items pi
                 JOIN Products p ON pi.product_id = p.product_id
                 WHERE pi.po_id = ?

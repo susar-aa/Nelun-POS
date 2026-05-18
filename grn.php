@@ -729,7 +729,7 @@ $po_id_param = $_GET['po_id'] ?? null;
                         product_name: item.product_name,
                         product_code: item.product_code,
                         cost_price: parseFloat(item.cost_price),
-                        selling_price: parseFloat(item.cost_price * 1.3), // Default suggested price (30% markup)
+                        selling_price: parseFloat(item.retail_price || item.cost_price),
                         quantity_received: parseInt(item.quantity)
                     }));
                     renderGRNItems();
