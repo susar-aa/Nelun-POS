@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,7 +24,8 @@
         }
 
         .container {
-            width: 72mm; /* Printable width */
+            width: 72mm;
+            /* Printable width */
             margin: 0 auto;
             padding: 4mm 0;
         }
@@ -35,6 +37,7 @@
             border-bottom: 1px dashed #000;
             padding-bottom: 5px;
         }
+
         .header img {
             max-width: 35mm;
             height: auto;
@@ -43,12 +46,14 @@
             margin-left: auto;
             margin-right: auto;
         }
+
         .header h2 {
             margin: 2px 0;
             font-size: 13px;
             font-weight: 900;
             text-transform: uppercase;
         }
+
         .header p {
             margin: 1px 0;
             font-size: 10px;
@@ -61,9 +66,11 @@
             margin-bottom: 5px;
             font-size: 10px;
         }
+
         .info-col {
             width: 48%;
         }
+
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -77,43 +84,51 @@
             padding: 4px 0;
             margin-bottom: 4px;
             font-weight: 800;
-            font-size: 10px; 
+            font-size: 10px;
             text-transform: uppercase;
         }
-        
+
         .item-row {
             display: flex;
-            align-items: center; /* Vertically center */
+            align-items: center;
+            /* Vertically center */
             border-bottom: 1px dotted #ccc;
             padding: 3px 0;
-            font-size: 10px; /* Slightly smaller to fit one line */
-            font-family: 'Courier New', Courier, monospace; /* Monospace for numbers */
+            font-size: 10px;
+            /* Slightly smaller to fit one line */
+            font-family: 'Courier New', Courier, monospace;
+            /* Monospace for numbers */
         }
 
         /* Columns Widths - Adjusted after removing Discount */
-        .col-name { 
-            width: 45%; 
-            text-align: left; 
-            font-family: 'Arial', sans-serif; 
+        .col-name {
+            width: 45%;
+            text-align: left;
+            font-family: 'Arial', sans-serif;
             font-weight: 700;
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             padding-right: 2px;
         }
-        .col-qty { 
-            width: 12%; 
+
+        .col-qty {
+            width: 12%;
             text-align: center;
-            font-weight: 700; /* Made Bold */
+            font-weight: 700;
+            /* Made Bold */
         }
-        .col-price { 
-            width: 18%; 
+
+        .col-price {
+            width: 18%;
             text-align: right;
-            font-weight: 700; /* Made Bold */
+            font-weight: 700;
+            /* Made Bold */
         }
-        .col-amt { 
-            width: 25%; 
-            text-align: right; 
+
+        .col-amt {
+            width: 25%;
+            text-align: right;
             font-weight: 800;
         }
 
@@ -123,12 +138,14 @@
             padding-top: 5px;
             margin-top: 5px;
         }
+
         .total-row {
             display: flex;
             justify-content: space-between;
             margin-bottom: 2px;
             font-size: 11px;
         }
+
         .grand-total-box {
             border-top: 2px solid #000;
             border-bottom: 2px solid #000;
@@ -146,13 +163,20 @@
             margin-top: 10px;
             font-size: 10px;
         }
-        .footer p { margin: 2px 0; }
+
+        .footer p {
+            margin: 2px 0;
+        }
 
         @media print {
-            .container { padding: 0 1mm; width: 100%; }
+            .container {
+                padding: 0 1mm;
+                width: 100%;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -168,8 +192,10 @@
                 <div class="info-row"><span>Date:</span> <span id="receiptDate"></span></div>
             </div>
             <div class="info-col" style="text-align: right;">
-                <div class="info-row" style="justify-content: flex-end;"><span>Cashier:</span> <span id="receiptCashier" style="margin-left: 5px;"></span></div>
-                <div class="info-row" style="justify-content: flex-end;"><span>Time:</span> <span id="receiptTime" style="margin-left: 5px;"></span></div>
+                <div class="info-row" style="justify-content: flex-end;"><span>Cashier:</span> <span id="receiptCashier"
+                        style="margin-left: 5px;"></span></div>
+                <div class="info-row" style="justify-content: flex-end;"><span>Time:</span> <span id="receiptTime"
+                        style="margin-left: 5px;"></span></div>
             </div>
         </div>
         <div class="info-row" style="border-bottom: 1px dashed #000; padding-bottom: 3px; margin-bottom: 5px;">
@@ -207,7 +233,7 @@
                 <span>Bill Discount:</span>
                 <span>(-) Rs. <span id="receiptBillDiscount">0.00</span></span>
             </div>
-            
+
             <div class="grand-total-box">
                 <span>NET TOTAL:</span>
                 <span>Rs. <span id="receiptGrandTotal">0.00</span></span>
@@ -225,7 +251,6 @@
 
         <div class="footer">
             <p style="font-weight: bold; font-size: 12px;">THANK YOU COME AGAIN!</p>
-            <p>Visit 'nelun.suzxlabs.com'</p>
             <p style="font-size: 9px; margin-top: 5px;">*Software by "www.suzxlabs.com" *</p>
         </div>
     </div>
@@ -243,12 +268,12 @@
                 document.getElementById('receiptTime').textContent = receiptData.time;
 
                 const itemsContainer = document.getElementById('receiptItemsContainer');
-                itemsContainer.innerHTML = ''; 
+                itemsContainer.innerHTML = '';
 
                 receiptData.items.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'item-row';
-                    
+
                     const price = parseFloat(item.price).toFixed(2);
                     const total = parseFloat(item.total).toFixed(2);
 
@@ -264,12 +289,12 @@
 
                 document.getElementById('receiptTotalItems').textContent = receiptData.totalItems;
                 document.getElementById('receiptGrossTotal').textContent = parseFloat(receiptData.grossSubtotal).toFixed(2);
-                
+
                 if (receiptData.totalItemDiscounts > 0) {
                     document.getElementById('receiptItemDiscountRow').style.display = 'flex';
                     document.getElementById('receiptItemDiscounts').textContent = parseFloat(receiptData.totalItemDiscounts).toFixed(2);
                 }
-                
+
                 if (receiptData.billDiscount > 0) {
                     document.getElementById('receiptBillDiscountRow').style.display = 'flex';
                     document.getElementById('receiptBillDiscount').textContent = parseFloat(receiptData.billDiscount).toFixed(2);
@@ -288,4 +313,5 @@
         });
     </script>
 </body>
+
 </html>
